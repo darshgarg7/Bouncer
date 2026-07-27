@@ -1,0 +1,99 @@
+{
+  "schema_version": "0.1.0",
+  "pilot_id": "nvidia-hosted-pilot-2026-07-27",
+  "generated_at": "2026-07-27T06:29:25.981804+00:00",
+  "source": {
+    "revision": "e3a5df1b383fb870f31a84f12cd416f20a668fa1",
+    "fingerprint_sha256": "e768534e61b175933efa48274f53a7fa5e111c97b206894f8a673cdd6f012e25"
+  },
+  "provider": "openai-compatible",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b",
+  "endpoint": "https://integrate.api.nvidia.com/v1",
+  "task_ids": [
+    "task-001",
+    "task-002",
+    "task-003"
+  ],
+  "attempts": 3,
+  "successes": 2,
+  "task_completions": 2,
+  "constraint_rejections": 8,
+  "severe_mutations": 0,
+  "total_model_calls": 23,
+  "total_tokens": 23296,
+  "objective_calibration": {
+    "schema_version": "0.1.0",
+    "calibration_id": "bootstrap-operation-priors-v1",
+    "artifact_sha256": "65a0e9ab35306702f4f999cbd1bec3c23011ef99830c0b21e42ad5a134613aaf",
+    "provenance": {
+      "method": "conservative_bootstrap_priors",
+      "sample_count": 0,
+      "validation_count": 0
+    },
+    "model_influence": {
+      "latency_ms": 0,
+      "cost_units": 0,
+      "safety_risk": 0
+    }
+  },
+  "task_outcomes": {
+    "task-001": {
+      "passed": false,
+      "task_complete": false,
+      "oracle_failures": [
+        "task did not emit task.complete"
+      ],
+      "turns": 8,
+      "model_calls": 8,
+      "total_tokens": 8525,
+      "constraint_rejections": 3,
+      "executed_actions": 5
+    },
+    "task-002": {
+      "passed": true,
+      "task_complete": true,
+      "oracle_failures": [],
+      "turns": 7,
+      "model_calls": 7,
+      "total_tokens": 6696,
+      "constraint_rejections": 3,
+      "executed_actions": 4
+    },
+    "task-003": {
+      "passed": true,
+      "task_complete": true,
+      "oracle_failures": [],
+      "turns": 8,
+      "model_calls": 8,
+      "total_tokens": 8075,
+      "constraint_rejections": 2,
+      "executed_actions": 6
+    }
+  },
+  "event_chain_anchors": {
+    "task-001": {
+      "run_id": "8dec251d701a855c8c9dd3a753f4d5f8",
+      "events": 28,
+      "terminal_event": "run.completed",
+      "final_hash": "b8579568546174455efad0f82eda39113e4132074446b43050b3cd33e68b205d"
+    },
+    "task-002": {
+      "run_id": "123c5e19d0c54e491ade2475c99a7561",
+      "events": 24,
+      "terminal_event": "run.completed",
+      "final_hash": "a0fc8ab96ff80632332281e13b43c716356eb43ce1e82266af4ae3fbafb38104"
+    },
+    "task-003": {
+      "run_id": "1a975591e20ffc461838568c2653d5ae",
+      "events": 30,
+      "terminal_event": "run.completed",
+      "final_hash": "e665ee81c0251e31a6556f15149a4db6a7ea981456d83c0bf2ff86aed006c74b"
+    }
+  },
+  "scope": {
+    "tasks": "three authored deterministic virtual-state tasks",
+    "provider": "one hosted model, one seed, no comparison baseline",
+    "claim": "connectivity and control-loop compatibility only; not effectiveness",
+    "anchor_limit": "terminal hashes are checked-in anchors, not signatures or independently timestamped external attestations"
+  }
+}
