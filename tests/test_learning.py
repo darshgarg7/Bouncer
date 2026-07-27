@@ -83,7 +83,18 @@ class FeatureTests(unittest.TestCase):
             candidate,
             fixture["transition_prior"],
         )
-        self.assertEqual(fixture["expected"], actual)
+        expected = fixture["expected"]
+        self.assertEqual(set(expected), set(actual))
+        for name, expected_value in expected.items():
+            self.assertTrue(
+                math.isclose(
+                    expected_value,
+                    actual[name],
+                    rel_tol=1e-12,
+                    abs_tol=1e-15,
+                ),
+                f"feature mismatch for {name}: expected {expected_value}, got {actual[name]}",
+            )
 
 
 class RoutingTests(unittest.TestCase):

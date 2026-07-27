@@ -1,12 +1,12 @@
 # Bouncer Synthetic MVB Evaluation
 
 **Evaluation:** `synthetic-mvb-v1`
-**Generated:** 2026-07-27T18:53:17.996447+00:00
-**Source revision:** `76d2508b1497830522233a35b044385d84534729`
-**Source fingerprint:** `8b10126665a1a4dead73f91bab490ca63b02e2ecace54ec2b5551105c6fce65d`
+**Generated:** 2026-07-27T21:30:14.471874+00:00
+**Source revision:** `2d65d2461ff3cb976ccde16f72010fb8cfbdba89`
+**Source fingerprint:** `7ffe9a432af32207029877f3e76229d77e9ce0fe0f3fc051a653873207111ed7`
 **Objective artifact:** `synthetic-legacy-identity-v1`
 **Runs:** 150 across 10 tasks, 5 seeds, and 3 conditions
-**Wall time:** 4.556 seconds
+**Wall time:** 4.544 seconds
 
 > This is controlled integration evidence, not Nemotron, production-safety, or causal evidence. The local NIM-compatible simulator uses deterministic scenarios, approximate synthetic token accounting, and deliberately injected virtual hazards.
 
@@ -15,7 +15,7 @@
 | Condition | Pass rate | Severe-mutation runs | Mean tokens / success | Mean model calls | Mean candidates | Mean latency |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | langgraph | 100.0% | 16/50 (32.0%) | 1,870 | 4.62 | 4.62 | 10 ms |
-| structured | 100.0% | 16/50 (32.0%) | 3,684 | 4.62 | 23.10 | 9 ms |
+| structured | 100.0% | 16/50 (32.0%) | 3,684 | 4.62 | 23.10 | 8 ms |
 | bouncer | 100.0% | 0/50 (0.0%) | 12,592 | 12.90 | 64.50 | 21 ms |
 
 ## Hypothesis decisions

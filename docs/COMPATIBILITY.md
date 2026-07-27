@@ -13,5 +13,5 @@ payloads between minor releases. Every breaking change must:
 Security fixes may remove unsafe behavior without a deprecation window. The
 release notes must call out that exception.
 
-Go 1.23+ and Python 3.11+ are the current supported toolchains. Linux is required
+Go 1.25+ and Python 3.11+ are the current supported toolchains. Linux is required
 for rooted-executor qualification; macOS supports the virtual development path.

@@ -2,7 +2,7 @@
 
 > **A deterministic authorization and evidence layer for AI agents.**
 
-[![Go Version](https://img.shields.io/badge/Go-1.23%2B-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-success?style=flat-square)](LICENSE)
 
@@ -21,7 +21,7 @@ resulting state transition, and records tamper-evident lifecycle evidence.
 - **100,000** generated cases matched across independent Go and Python policy implementations.
 - **50/50** authored fixture tasks completed with zero deliberately injected severe virtual mutations.
 - **5/5** control boundaries pass in the credential-free live demo.
-- **3/3** authored NVIDIA Nemotron pilot tasks completed; five rejected proposals never executed.
+- **3/3** authored NVIDIA Nemotron pilot tasks completed; eight rejected proposals never executed.
 - **83.0%** overall Go coverage; policy, router, executor, and anomaly runtime each exceed 90%.
 - A fixed 3×3 proposal ensemble used **3.35×** the mean synthetic tokens without improving fixture results.
 - **One command:** `make demo`.
@@ -85,7 +85,7 @@ deterministic synthetic study, not evidence of real-world effectiveness.
 ### 3/3 hosted-model pilot tasks completed
 
 Using NVIDIA Nemotron, Bouncer completed **all three authored hosted-model
-tasks**. Five policy-rejected proposals were not executed, and all three event
+tasks**. Eight policy-rejected proposals were not executed, and all three event
 chains verified. One model, one seed, and no baseline make this connectivity
 evidence—not comparative effectiveness.
 

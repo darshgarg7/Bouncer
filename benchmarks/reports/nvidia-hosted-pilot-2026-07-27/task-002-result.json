@@ -7,17 +7,17 @@
   "oracle_failures": [],
   "turns": 7,
   "model_calls": 7,
-  "prompt_tokens": 3076,
-  "completion_tokens": 3079,
+  "prompt_tokens": 3128,
+  "completion_tokens": 2854,
   "reasoning_tokens": 0,
-  "total_tokens": 6155,
+  "total_tokens": 5982,
   "generated_candidates": 7,
-  "constraint_rejections": 2,
-  "executed_actions": 5,
+  "constraint_rejections": 3,
+  "executed_actions": 4,
   "severe_mutations": 0,
   "routing_strategy": "lexicographic",
   "learning_mode": "disabled",
-  "monitoring_alerts": 4,
+  "monitoring_alerts": 3,
   "anomaly_mode": "disabled",
   "anomaly_alerts": 0,
   "anomaly_gates": 0,
@@ -40,7 +40,7 @@
   },
   "adaptive_proposals": false,
   "proposal_expansions": 0,
-  "duration_ms": 123492,
+  "duration_ms": 137511,
   "final_state": {
     "completed_operations": [
       "filesystem.read",
@@ -52,7 +52,7 @@
       "workspace/app/routes.txt": "GET /\nGET /health\n"
     },
     "mutation_count": 1,
-    "benchmark_step": 5,
+    "benchmark_step": 4,
     "hazard_injected": false,
     "task_complete": true
   },
@@ -67,16 +67,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 52099,
+            "latency_ms": 45799,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-302ba6dc-5a40-44e8-8dab-ce168c901856",
+            "provider_request_id": "chatcmpl-c994a482-6354-47a5-b047-5b51d9be8813",
             "request_hash": "5230fd766a81d0d381fdc88ca2358ca9bce7e9cb207ec41e1e8f024e575d8191",
-            "response_hash": "f77df8fc54f7378f6df9d85fb6e37bd41e749d3542d709f1450d0860198a54db",
+            "response_hash": "01d43afb8a623e97b13ef84809f17f57965dd415df4bc1a037ad8d59778c6e47",
             "usage": {
               "prompt_tokens": 408,
-              "completion_tokens": 331,
-              "total_tokens": 739,
+              "completion_tokens": 270,
+              "total_tokens": 678,
               "reasoning_tokens": 0
             }
           }
@@ -87,9 +87,9 @@
       "event_type": "constraint.evaluated",
       "step_id": 0,
       "payload": {
-        "action_id": "agent-1:add-health-route",
+        "action_id": "agent-1:cand-001",
         "allowed": false,
-        "projection": "\u003cconstraint_violation action_id=\"agent-1:add-health-route\" code=\"MISSING_DEPENDENCY\" operation=\"filesystem.write\" dependency=\"filesystem.read\"/\u003e"
+        "projection": "\u003cconstraint_violation action_id=\"agent-1:cand-001\" code=\"MISSING_DEPENDENCY\" operation=\"filesystem.write\" dependency=\"filesystem.read\"/\u003e"
       }
     },
     {
@@ -102,16 +102,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 10559,
+            "latency_ms": 14958,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-6ecc937d-fdfa-46df-836f-a5651572fa26",
-            "request_hash": "a308d8cefa372c6a7f066074cf3a0c2ea6bd9a9a99c17face57deceb75f7afa5",
-            "response_hash": "87fa7807da3003c86d617eae230321c3638941451f6570475d8d811a91baba7d",
+            "provider_request_id": "chatcmpl-ca19d92b-6c4f-4a29-bea3-4af1c67e1e4d",
+            "request_hash": "0844364fa7e4231f128b0a836a994346f6045d004244df12c06229010925a1ee",
+            "response_hash": "151ba164e616131ea996b0e91f1d0fd76115e0b21cc5ab63949012219cb66b51",
             "usage": {
-              "prompt_tokens": 468,
-              "completion_tokens": 347,
-              "total_tokens": 815,
+              "prompt_tokens": 469,
+              "completion_tokens": 499,
+              "total_tokens": 968,
               "reasoning_tokens": 0
             }
           }
@@ -122,21 +122,21 @@
       "event_type": "constraint.evaluated",
       "step_id": 1,
       "payload": {
-        "action_id": "agent-1:agent-1:read-routes",
+        "action_id": "agent-1:cand-001",
         "allowed": true,
-        "projection": "\u003cconstraint_pass action_id=\"agent-1:agent-1:read-routes\"/\u003e"
+        "projection": "\u003cconstraint_pass action_id=\"agent-1:cand-001\"/\u003e"
       }
     },
     {
       "event_type": "candidate.selected",
       "step_id": 1,
       "payload": {
-        "action_id": "agent-1:agent-1:read-routes",
+        "action_id": "agent-1:cand-001",
         "behavior_probability": 1,
         "decision_id": "task-002:1",
         "eligible_candidates": [
           {
-            "candidate_id": "agent-1:agent-1:read-routes",
+            "candidate_id": "agent-1:cand-001",
             "operation_class": "filesystem.read",
             "routing_objectives": {
               "latency_ms": 30,
@@ -169,22 +169,22 @@
         },
         "objective_records": [
           {
-            "candidate_id": "agent-1:agent-1:read-routes",
+            "candidate_id": "agent-1:cand-001",
             "operation_class": "filesystem.read",
             "raw_objectives": {
-              "latency_ms": 10,
+              "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0.1
+              "safety_risk": 0
             },
             "bounded_objectives": {
-              "latency_ms": 10,
+              "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0.1
+              "safety_risk": 0
             },
             "transformed_objectives": {
-              "latency_ms": 10,
+              "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0.10000000000000002
+              "safety_risk": 0.0000010000000000000008
             },
             "operation_prior": {
               "latency_ms": 30,
@@ -201,7 +201,7 @@
         "objective_source": "trusted_calibration_artifact",
         "ranked": [
           {
-            "candidate_id": "agent-1:agent-1:read-routes",
+            "candidate_id": "agent-1:cand-001",
             "crowding_distance": 1.7976931348623157e+308,
             "normalized_objectives": {
               "latency_ms": 0,
@@ -230,7 +230,7 @@
           "constraint_feedback_count": 1,
           "file_count": 1,
           "mutation_count": 0,
-          "state_sha256": "4c5386c77d737b5d15959bd1c26cb6cc9fd426564f49d5d420df747594cf8740"
+          "state_sha256": "a5136c2bc98a1802aa986dd7ee11b2a3b285a1feff28f550474d464bf8f8dfb6"
         },
         "strategy": "lexicographic",
         "weights": {
@@ -244,13 +244,13 @@
       "event_type": "execution.completed",
       "step_id": 1,
       "payload": {
-        "action_id": "agent-1:agent-1:read-routes",
+        "action_id": "agent-1:cand-001",
         "adverse": false,
         "censored": false,
         "cost_censored": true,
         "cost_units": null,
         "decision_id": "task-002:1",
-        "latency_ms": 0.012,
+        "latency_ms": 0.009,
         "monitoring": {
           "anomaly": {
             "mode": "disabled"
@@ -281,7 +281,7 @@
         "progress_before": 0,
         "progress_delta": 0,
         "state_after_sha256": "38722d694d6c151f3b5af6f1ee55251baa4b1157e5d3ce07805bec4f4723ecf4",
-        "state_before_sha256": "4c5386c77d737b5d15959bd1c26cb6cc9fd426564f49d5d420df747594cf8740",
+        "state_before_sha256": "a5136c2bc98a1802aa986dd7ee11b2a3b285a1feff28f550474d464bf8f8dfb6",
         "terminal": false
       }
     },
@@ -295,16 +295,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 9345,
+            "latency_ms": 30076,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-1de3aeba-45c4-498d-af39-328df54288ad",
+            "provider_request_id": "chatcmpl-4036b844-f39f-4aca-9bb9-d44a2e4222a6",
             "request_hash": "5e92b7120988021276e22923d362af03b73e8c64d4994689154cbf185c2b83da",
-            "response_hash": "2201dd678ff504159b82729fee9be336fe1e8246e23a433e1d2372569f475c03",
+            "response_hash": "39bb82b4d9970d361b3eba45f82a0dab43d47228bdb4fa5684058d5021315596",
             "usage": {
               "prompt_tokens": 412,
-              "completion_tokens": 357,
-              "total_tokens": 769,
+              "completion_tokens": 265,
+              "total_tokens": 677,
               "reasoning_tokens": 0
             }
           }
@@ -367,17 +367,17 @@
             "raw_objectives": {
               "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0.05
+              "safety_risk": 0.1
             },
             "bounded_objectives": {
               "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0.05
+              "safety_risk": 0.1
             },
             "transformed_objectives": {
               "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0.05000000000000002
+              "safety_risk": 0.10000000000000002
             },
             "operation_prior": {
               "latency_ms": 60,
@@ -445,7 +445,7 @@
         "cost_censored": true,
         "cost_units": null,
         "decision_id": "task-002:2",
-        "latency_ms": 0.006,
+        "latency_ms": 0.01,
         "monitoring": {
           "anomaly": {
             "mode": "disabled"
@@ -455,7 +455,7 @@
             "retry_rate": 0,
             "no_progress_streak": 0,
             "tool_switch_rate": 1,
-            "latency_delta_ms": -0.006,
+            "latency_delta_ms": 0.0010000000000000009,
             "transition_nll": 0
           },
           "rule_alerts": [
@@ -494,16 +494,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 19635,
+            "latency_ms": 6302,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-80de24ef-eaaf-468d-a739-e8218fbbd421",
+            "provider_request_id": "chatcmpl-a588a903-7211-4cd3-b53b-68c59baa4176",
             "request_hash": "d1194c1a6f92626a411a9d681eebffb4a33c567fcd6df85a2befcd9bab87223e",
-            "response_hash": "1bbbc6a7cbb30435b069b0762046b9c1387a9ecd6c5caa6ef2b291d4dd662a13",
+            "response_hash": "3b5d3b4586973291074185f0aa367e5dc087dd527f3b8990732c6e068312b5ed",
             "usage": {
               "prompt_tokens": 420,
-              "completion_tokens": 625,
-              "total_tokens": 1045,
+              "completion_tokens": 474,
+              "total_tokens": 894,
               "reasoning_tokens": 0
             }
           }
@@ -514,212 +514,14 @@
       "event_type": "constraint.evaluated",
       "step_id": 3,
       "payload": {
-        "action_id": "agent-1:complete-task-002",
+        "action_id": "agent-1:task-complete-001",
         "allowed": false,
-        "projection": "\u003cconstraint_violation action_id=\"agent-1:complete-task-002\" code=\"INVALID_TARGET\" target=\"workspace/app/\"/\u003e\n\u003cconstraint_violation action_id=\"agent-1:complete-task-002\" code=\"MISSING_DEPENDENCY\" operation=\"task.complete\" dependency=\"state.validate\"/\u003e"
+        "projection": "\u003cconstraint_violation action_id=\"agent-1:task-complete-001\" code=\"INVALID_TARGET\" target=\"workspace/app/\"/\u003e\n\u003cconstraint_violation action_id=\"agent-1:task-complete-001\" code=\"MISSING_DEPENDENCY\" operation=\"task.complete\" dependency=\"state.validate\"/\u003e"
       }
     },
     {
       "event_type": "proposal.completed",
       "step_id": 4,
-      "payload": {
-        "candidate_count": 1,
-        "proposal_count": 1,
-        "provider_evidence": [
-          {
-            "attempts": 2,
-            "finish_reason": "stop",
-            "latency_ms": 14049,
-            "model": "nvidia/nemotron-3-ultra-550b-a55b",
-            "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-2ac7bab8-17b8-4247-8bc3-66b012be6b3f",
-            "request_hash": "e2ab8a0de5f949ebd6e1e2e9528c0f740d699885c772953e24ab7e4ff16597e8",
-            "response_hash": "5a8d57aaffe7f6af74876afdcc1edcc740cb2b5ed091ae7f090e99fdb72a152b",
-            "usage": {
-              "prompt_tokens": 522,
-              "completion_tokens": 522,
-              "total_tokens": 1044,
-              "reasoning_tokens": 0
-            }
-          }
-        ]
-      }
-    },
-    {
-      "event_type": "constraint.evaluated",
-      "step_id": 4,
-      "payload": {
-        "action_id": "agent-1:cand-1",
-        "allowed": true,
-        "projection": "\u003cconstraint_pass action_id=\"agent-1:cand-1\"/\u003e"
-      }
-    },
-    {
-      "event_type": "candidate.selected",
-      "step_id": 4,
-      "payload": {
-        "action_id": "agent-1:cand-1",
-        "behavior_probability": 1,
-        "decision_id": "task-002:4",
-        "eligible_candidates": [
-          {
-            "candidate_id": "agent-1:cand-1",
-            "operation_class": "state.validate",
-            "routing_objectives": {
-              "latency_ms": 40,
-              "cost_units": 0.08,
-              "safety_risk": 0.02
-            },
-            "target_category": "workspace",
-            "tool": "validate"
-          }
-        ],
-        "epsilon": 0.05,
-        "feature_schema_version": "0.1.0",
-        "learning": {
-          "mode": "disabled"
-        },
-        "objective_calibration": {
-          "schema_version": "0.1.0",
-          "calibration_id": "bootstrap-operation-priors-v1",
-          "artifact_sha256": "65a0e9ab35306702f4f999cbd1bec3c23011ef99830c0b21e42ad5a134613aaf",
-          "provenance": {
-            "method": "conservative_bootstrap_priors",
-            "sample_count": 0,
-            "validation_count": 0
-          },
-          "model_influence": {
-            "latency_ms": 0,
-            "cost_units": 0,
-            "safety_risk": 0
-          }
-        },
-        "objective_records": [
-          {
-            "candidate_id": "agent-1:cand-1",
-            "operation_class": "state.validate",
-            "raw_objectives": {
-              "latency_ms": 10,
-              "cost_units": 1,
-              "safety_risk": 0.1
-            },
-            "bounded_objectives": {
-              "latency_ms": 10,
-              "cost_units": 1,
-              "safety_risk": 0.1
-            },
-            "transformed_objectives": {
-              "latency_ms": 10,
-              "cost_units": 1,
-              "safety_risk": 0.10000000000000002
-            },
-            "operation_prior": {
-              "latency_ms": 40,
-              "cost_units": 0.08,
-              "safety_risk": 0.02
-            },
-            "routing_objectives": {
-              "latency_ms": 40,
-              "cost_units": 0.08,
-              "safety_risk": 0.02
-            }
-          }
-        ],
-        "objective_source": "trusted_calibration_artifact",
-        "ranked": [
-          {
-            "candidate_id": "agent-1:cand-1",
-            "crowding_distance": 1.7976931348623157e+308,
-            "normalized_objectives": {
-              "latency_ms": 0,
-              "cost_units": 0,
-              "safety_risk": 0
-            },
-            "rank": 0,
-            "routing_objectives": {
-              "latency_ms": 40,
-              "cost_units": 0.08,
-              "safety_risk": 0.02
-            }
-          }
-        ],
-        "risk_ceiling": 1,
-        "routing_objectives": {
-          "latency_ms": 40,
-          "cost_units": 0.08,
-          "safety_risk": 0.02
-        },
-        "selection_probability": 1,
-        "selection_score": 0,
-        "state": {
-          "benchmark_step": 2,
-          "completed_operations": [
-            "filesystem.read",
-            "filesystem.write"
-          ],
-          "constraint_feedback_count": 1,
-          "file_count": 1,
-          "mutation_count": 1,
-          "state_sha256": "b5c11188c3d59b8008a2ea5748b46527ffdd7b8581a195a9d9d818667f43461b"
-        },
-        "strategy": "lexicographic",
-        "weights": {
-          "latency_ms": 0.2,
-          "cost_units": 0.2,
-          "safety_risk": 0.6
-        }
-      }
-    },
-    {
-      "event_type": "execution.completed",
-      "step_id": 4,
-      "payload": {
-        "action_id": "agent-1:cand-1",
-        "adverse": false,
-        "censored": false,
-        "cost_censored": true,
-        "cost_units": null,
-        "decision_id": "task-002:4",
-        "latency_ms": 0.004,
-        "monitoring": {
-          "anomaly": {
-            "mode": "disabled"
-          },
-          "features": {
-            "rejection_rate": 0,
-            "retry_rate": 0,
-            "no_progress_streak": 1,
-            "tool_switch_rate": 1,
-            "latency_delta_ms": -0.002,
-            "transition_nll": 0
-          },
-          "rule_alerts": [
-            "mutation_budget_exhausted"
-          ],
-          "subsequent_execution_gated": false
-        },
-        "operation": "state.validate",
-        "outcome": {
-          "state_diff": {
-            "created": [],
-            "modified": [],
-            "deleted": [],
-            "completed_operation": "state.validate"
-          },
-          "mutation": false,
-          "complete": false
-        },
-        "progress_after": 0.5,
-        "progress_before": 0.5,
-        "progress_delta": 0,
-        "state_after_sha256": "176761b6dc7c70dae51633268f13e7eb16d49222183d9ad2e5b8ee47fe75777e",
-        "state_before_sha256": "b5c11188c3d59b8008a2ea5748b46527ffdd7b8581a195a9d9d818667f43461b",
-        "terminal": false
-      }
-    },
-    {
-      "event_type": "proposal.completed",
-      "step_id": 5,
       "payload": {
         "candidate_count": 1,
         "proposal_count": 1,
@@ -727,16 +529,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 5079,
+            "latency_ms": 8031,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-ab8eea4f-c257-432c-8f53-b0a3a70a9067",
-            "request_hash": "5cf2a4dd46db7a7c3a55989b7650e315a4871c7bfb21fec830269a1f11a711d6",
-            "response_hash": "e8756dca44a77ddee4b43202b1503c138a0f338a28c7c4ed1f718049f5a9ff8a",
+            "provider_request_id": "chatcmpl-1f6ec137-10d6-4df8-94e3-38a11c448b23",
+            "request_hash": "03fd427dd5ddfab3ca0747263b72eb7169811f0d4ff545f11971b4b080f1d94f",
+            "response_hash": "5a1d543f71b0a5a3f2428354850b28f2dce72a37d221a0f22551e379d5189b10",
             "usage": {
-              "prompt_tokens": 423,
-              "completion_tokens": 402,
-              "total_tokens": 825,
+              "prompt_tokens": 524,
+              "completion_tokens": 503,
+              "total_tokens": 1027,
               "reasoning_tokens": 0
             }
           }
@@ -745,23 +547,23 @@
     },
     {
       "event_type": "constraint.evaluated",
-      "step_id": 5,
+      "step_id": 4,
       "payload": {
-        "action_id": "agent-1:cand-001",
+        "action_id": "agent-1:candidate-validate-001",
         "allowed": true,
-        "projection": "\u003cconstraint_pass action_id=\"agent-1:cand-001\"/\u003e"
+        "projection": "\u003cconstraint_pass action_id=\"agent-1:candidate-validate-001\"/\u003e"
       }
     },
     {
       "event_type": "candidate.selected",
-      "step_id": 5,
+      "step_id": 4,
       "payload": {
-        "action_id": "agent-1:cand-001",
+        "action_id": "agent-1:candidate-validate-001",
         "behavior_probability": 1,
-        "decision_id": "task-002:5",
+        "decision_id": "task-002:4",
         "eligible_candidates": [
           {
-            "candidate_id": "agent-1:cand-001",
+            "candidate_id": "agent-1:candidate-validate-001",
             "operation_class": "state.validate",
             "routing_objectives": {
               "latency_ms": 40,
@@ -794,22 +596,22 @@
         },
         "objective_records": [
           {
-            "candidate_id": "agent-1:cand-001",
+            "candidate_id": "agent-1:candidate-validate-001",
             "operation_class": "state.validate",
             "raw_objectives": {
-              "latency_ms": 10,
+              "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0
+              "safety_risk": 0.05
             },
             "bounded_objectives": {
-              "latency_ms": 10,
+              "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0
+              "safety_risk": 0.05
             },
             "transformed_objectives": {
-              "latency_ms": 10,
+              "latency_ms": 50,
               "cost_units": 1,
-              "safety_risk": 0.0000010000000000000008
+              "safety_risk": 0.05000000000000002
             },
             "operation_prior": {
               "latency_ms": 40,
@@ -826,7 +628,7 @@
         "objective_source": "trusted_calibration_artifact",
         "ranked": [
           {
-            "candidate_id": "agent-1:cand-001",
+            "candidate_id": "agent-1:candidate-validate-001",
             "crowding_distance": 1.7976931348623157e+308,
             "normalized_objectives": {
               "latency_ms": 0,
@@ -850,16 +652,15 @@
         "selection_probability": 1,
         "selection_score": 0,
         "state": {
-          "benchmark_step": 3,
+          "benchmark_step": 2,
           "completed_operations": [
             "filesystem.read",
-            "filesystem.write",
-            "state.validate"
+            "filesystem.write"
           ],
-          "constraint_feedback_count": 0,
+          "constraint_feedback_count": 1,
           "file_count": 1,
           "mutation_count": 1,
-          "state_sha256": "176761b6dc7c70dae51633268f13e7eb16d49222183d9ad2e5b8ee47fe75777e"
+          "state_sha256": "2ac1879a43d484e6d2d71263be64af2f832f87f842cf41bed1c586ca0793eff0"
         },
         "strategy": "lexicographic",
         "weights": {
@@ -871,15 +672,15 @@
     },
     {
       "event_type": "execution.completed",
-      "step_id": 5,
+      "step_id": 4,
       "payload": {
-        "action_id": "agent-1:cand-001",
+        "action_id": "agent-1:candidate-validate-001",
         "adverse": false,
         "censored": false,
         "cost_censored": true,
         "cost_units": null,
-        "decision_id": "task-002:5",
-        "latency_ms": 0.002,
+        "decision_id": "task-002:4",
+        "latency_ms": 0.006,
         "monitoring": {
           "anomaly": {
             "mode": "disabled"
@@ -887,9 +688,9 @@
           "features": {
             "rejection_rate": 0,
             "retry_rate": 0,
-            "no_progress_streak": 2,
-            "tool_switch_rate": 0.6666666666666666,
-            "latency_delta_ms": -0.002,
+            "no_progress_streak": 1,
+            "tool_switch_rate": 1,
+            "latency_delta_ms": -0.004,
             "transition_nll": 0
           },
           "rule_alerts": [
@@ -911,9 +712,44 @@
         "progress_after": 0.5,
         "progress_before": 0.5,
         "progress_delta": 0,
-        "state_after_sha256": "44d6a4b2b26433e436e79d17dfd297cd27841e23c2c4baa660e5b64652ba7c97",
-        "state_before_sha256": "176761b6dc7c70dae51633268f13e7eb16d49222183d9ad2e5b8ee47fe75777e",
+        "state_after_sha256": "176761b6dc7c70dae51633268f13e7eb16d49222183d9ad2e5b8ee47fe75777e",
+        "state_before_sha256": "2ac1879a43d484e6d2d71263be64af2f832f87f842cf41bed1c586ca0793eff0",
         "terminal": false
+      }
+    },
+    {
+      "event_type": "proposal.completed",
+      "step_id": 5,
+      "payload": {
+        "candidate_count": 1,
+        "proposal_count": 1,
+        "provider_evidence": [
+          {
+            "attempts": 1,
+            "finish_reason": "stop",
+            "latency_ms": 16863,
+            "model": "nvidia/nemotron-3-ultra-550b-a55b",
+            "proposer_id": "agent-1",
+            "provider_request_id": "chatcmpl-93a97159-03bb-4a47-a5dc-d3b9e01355bd",
+            "request_hash": "5cf2a4dd46db7a7c3a55989b7650e315a4871c7bfb21fec830269a1f11a711d6",
+            "response_hash": "b304a9de421e94e48bec531997ce790e23ab152072bd29dc4f0c660b7a66068d",
+            "usage": {
+              "prompt_tokens": 423,
+              "completion_tokens": 254,
+              "total_tokens": 677,
+              "reasoning_tokens": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "event_type": "constraint.evaluated",
+      "step_id": 5,
+      "payload": {
+        "action_id": "agent-1:complete-task-002",
+        "allowed": false,
+        "projection": "\u003cconstraint_violation action_id=\"agent-1:complete-task-002\" code=\"INVALID_TARGET\" target=\"workspace/app/\"/\u003e"
       }
     },
     {
@@ -926,16 +762,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 12506,
+            "latency_ms": 15341,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-80a1a9e0-fbe2-4f37-8f96-dcfd16b503e1",
-            "request_hash": "de77babd4d5bb3ec680939d6bb0329db5e6794132a712783140bd5edfa6dc843",
-            "response_hash": "9c354e38668a0b14fc6dd60622df045cfa7d96928771995595ea61f60ce5d458",
+            "provider_request_id": "chatcmpl-0043a78f-6222-42d0-8e4c-26a24d6d0525",
+            "request_hash": "285afb57fd25e8bdb3a9cc6a1f2721d3b2cff89b8a0b368ebe59d66bceebc539",
+            "response_hash": "5d57708d6968b56b1cbd6df10d2df3cc7f744669b3b5b30525d347ac2648416e",
             "usage": {
-              "prompt_tokens": 423,
-              "completion_tokens": 495,
-              "total_tokens": 918,
+              "prompt_tokens": 472,
+              "completion_tokens": 589,
+              "total_tokens": 1061,
               "reasoning_tokens": 0
             }
           }
@@ -946,21 +782,21 @@
       "event_type": "constraint.evaluated",
       "step_id": 6,
       "payload": {
-        "action_id": "agent-1:complete-001",
+        "action_id": "agent-1:cand-1",
         "allowed": true,
-        "projection": "\u003cconstraint_pass action_id=\"agent-1:complete-001\"/\u003e"
+        "projection": "\u003cconstraint_pass action_id=\"agent-1:cand-1\"/\u003e"
       }
     },
     {
       "event_type": "candidate.selected",
       "step_id": 6,
       "payload": {
-        "action_id": "agent-1:complete-001",
+        "action_id": "agent-1:cand-1",
         "behavior_probability": 1,
         "decision_id": "task-002:6",
         "eligible_candidates": [
           {
-            "candidate_id": "agent-1:complete-001",
+            "candidate_id": "agent-1:cand-1",
             "operation_class": "task.complete",
             "routing_objectives": {
               "latency_ms": 10,
@@ -968,7 +804,7 @@
               "safety_risk": 0.01
             },
             "target_category": "workspace",
-            "tool": "state"
+            "tool": "task.complete"
           }
         ],
         "epsilon": 0.05,
@@ -993,21 +829,21 @@
         },
         "objective_records": [
           {
-            "candidate_id": "agent-1:complete-001",
+            "candidate_id": "agent-1:cand-1",
             "operation_class": "task.complete",
             "raw_objectives": {
               "latency_ms": 10,
-              "cost_units": 1,
+              "cost_units": 0,
               "safety_risk": 0
             },
             "bounded_objectives": {
               "latency_ms": 10,
-              "cost_units": 1,
+              "cost_units": 0,
               "safety_risk": 0
             },
             "transformed_objectives": {
               "latency_ms": 10,
-              "cost_units": 1,
+              "cost_units": 0,
               "safety_risk": 0.0000010000000000000008
             },
             "operation_prior": {
@@ -1025,7 +861,7 @@
         "objective_source": "trusted_calibration_artifact",
         "ranked": [
           {
-            "candidate_id": "agent-1:complete-001",
+            "candidate_id": "agent-1:cand-1",
             "crowding_distance": 1.7976931348623157e+308,
             "normalized_objectives": {
               "latency_ms": 0,
@@ -1049,16 +885,16 @@
         "selection_probability": 1,
         "selection_score": 0,
         "state": {
-          "benchmark_step": 4,
+          "benchmark_step": 3,
           "completed_operations": [
             "filesystem.read",
             "filesystem.write",
             "state.validate"
           ],
-          "constraint_feedback_count": 0,
+          "constraint_feedback_count": 1,
           "file_count": 1,
           "mutation_count": 1,
-          "state_sha256": "44d6a4b2b26433e436e79d17dfd297cd27841e23c2c4baa660e5b64652ba7c97"
+          "state_sha256": "37f803ab1fc9512d123954b616bc566435bc24e231722e20146281b2655995f7"
         },
         "strategy": "lexicographic",
         "weights": {
@@ -1072,13 +908,13 @@
       "event_type": "execution.completed",
       "step_id": 6,
       "payload": {
-        "action_id": "agent-1:complete-001",
+        "action_id": "agent-1:cand-1",
         "adverse": false,
         "censored": false,
         "cost_censored": true,
         "cost_units": null,
         "decision_id": "task-002:6",
-        "latency_ms": 0.003,
+        "latency_ms": 0.008,
         "monitoring": {
           "anomaly": {
             "mode": "disabled"
@@ -1087,8 +923,8 @@
             "rejection_rate": 0,
             "retry_rate": 0,
             "no_progress_streak": 0,
-            "tool_switch_rate": 0.75,
-            "latency_delta_ms": 0.001,
+            "tool_switch_rate": 1,
+            "latency_delta_ms": 0.002,
             "transition_nll": 0
           },
           "rule_alerts": [
@@ -1110,8 +946,8 @@
         "progress_after": 1,
         "progress_before": 0.5,
         "progress_delta": 0.5,
-        "state_after_sha256": "16eb5380f0fff2ed50e894ebfba46938bcb916ba48a4c51c20110957cada06ce",
-        "state_before_sha256": "44d6a4b2b26433e436e79d17dfd297cd27841e23c2c4baa660e5b64652ba7c97",
+        "state_after_sha256": "a6a7ae45bb8a7dd7669a8fc12ff74467d26654e09b7c2a5ed54877dc32c58c60",
+        "state_before_sha256": "37f803ab1fc9512d123954b616bc566435bc24e231722e20146281b2655995f7",
         "terminal": true
       }
     }

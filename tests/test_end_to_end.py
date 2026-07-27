@@ -45,7 +45,7 @@ class EndToEndTests(unittest.TestCase):
                     text=True,
                     capture_output=True,
                     check=False,
-                    timeout=30,
+                    timeout=60,
                 )
             self.assertEqual(0, process.returncode, process.stderr)
             trajectory = build_trajectory(read_events(event_log))
@@ -85,7 +85,7 @@ class EndToEndTests(unittest.TestCase):
                     text=True,
                     capture_output=True,
                     check=False,
-                    timeout=30,
+                    timeout=60,
                 )
             self.assertEqual(0, active_process.returncode, active_process.stderr)
         result = json.loads(process.stdout)

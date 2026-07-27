@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Go 1.23 or newer
+- Go 1.25 or newer
 - Python 3.11 or newer
 - Python packages from `.[dev]`
 - Optional OpenAI-compatible NVIDIA NIM endpoint
