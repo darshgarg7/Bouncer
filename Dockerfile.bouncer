@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-run ./cmd/
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-provider-gate ./cmd/bouncer-provider-gate \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-verify-log ./cmd/bouncer-verify-log
 
-FROM python:3.11-slim-bookworm
+FROM python:3.14-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 RUN groupadd --system bouncer && useradd --system --gid bouncer --home /app bouncer
