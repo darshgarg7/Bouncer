@@ -8,6 +8,13 @@ release_root="${BOUNCER_RELEASE_DIRECTORY:-$repository_root/dist/release}"
 reports_root="${BOUNCER_REPORT_DIRECTORY:-$repository_root/dist/test-reports}"
 version="${BOUNCER_VERSION:-$(git -C "$repository_root" describe --tags --always --dirty)}"
 source_date_epoch="${SOURCE_DATE_EPOCH:-$(git -C "$repository_root" show -s --format=%ct HEAD)}"
+if [[ -n "${PYTHON:-}" ]]; then
+  python_command="$PYTHON"
+elif [[ -x "$repository_root/.venv/bin/python" ]]; then
+  python_command="$repository_root/.venv/bin/python"
+else
+  python_command="python3"
+fi
 commands=(
   bouncer-harness
   bouncer-provider-gate
@@ -68,7 +75,7 @@ done
 go test -json ./... > "$reports_root/go-test.jsonl"
 go test -coverprofile="$reports_root/go-coverage.out" ./... >/dev/null
 go tool cover -func="$reports_root/go-coverage.out" > "$reports_root/go-coverage.txt"
-python3 -m unittest discover -s tests -v > "$reports_root/python-unittest.txt" 2>&1
+"$python_command" -m unittest discover -s tests -v > "$reports_root/python-unittest.txt" 2>&1
 
 printf 'release artifacts built in %s\n' "$release_root"
 printf 'test reports built in %s\n' "$reports_root"
