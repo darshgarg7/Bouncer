@@ -43,4 +43,7 @@ for task_number in 001 002 003; do
     >"$output_directory/$task_id-verification.json"
 done
 
+"$repository_root/.venv/bin/python" "$repository_root/tools/summarize_pilot.py" \
+  "$output_directory" >/dev/null
+
 echo "NVIDIA pilot artifacts written to $output_directory"
