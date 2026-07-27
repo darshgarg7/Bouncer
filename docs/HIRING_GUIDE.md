@@ -24,7 +24,7 @@ integration.
 | Evidence | Signal |
 | --- | --- |
 | **100,000 generated cases** matched between the Go policy and independent Python oracle | Cross-language contract design and differential testing |
-| **82.3–83.0% overall Go coverage** across Linux/macOS; Linux's `openat2` executor is **81.6%**, while the other critical packages exceed 90% | Failure-path and boundary-focused testing with platform-specific ratchets |
+| **82.3% Linux / 83.0% macOS overall Go coverage**; Linux's `openat2` executor is **81.6%**, while the other critical packages exceed 90% | Failure-path and boundary-focused testing with platform-specific ratchets |
 | **5/5 credential-free demo checks** | A reviewer can verify the central idea immediately |
 | **3/3 hosted pilot tasks**, with rejected proposals not executed | Real-provider integration, honestly scoped as connectivity evidence |
 | A 3×3 ensemble used **3.35×** mean synthetic tokens without improving fixture results | Measurement changed the design; complexity was removed from the default |
@@ -84,7 +84,7 @@ support checks, and an explicit configuration change.
   calls, including fail-closed policy, transition verification, durable
   idempotency, and lifecycle-complete hash-chained evidence.
 - Differentially tested the Go policy against an independent Python oracle
-  across 100,000 generated cases; achieved 82.3–83.0% overall Go coverage,
+  across 100,000 generated cases; achieved 82.3% Linux / 83.0% macOS overall Go coverage,
   above 90% in policy, routing, and anomaly boundaries, and 81.6% for the
   Linux-only rooted executor package.
 - Measured a 3.35× mean synthetic-token overhead from a 3×3 proposal ensemble

@@ -22,7 +22,7 @@ resulting state transition, and records tamper-evident lifecycle evidence.
 - **50/50** authored fixture tasks completed with zero deliberately injected severe virtual mutations.
 - **5/5** control boundaries pass in the credential-free live demo.
 - **3/3** authored NVIDIA Nemotron pilot tasks completed; eight rejected proposals never executed.
-- **82.3–83.0%** overall Go coverage across Linux/macOS; Linux includes the
+- **82.3% on Linux / 83.0% on macOS** overall Go coverage; Linux includes the
   `openat2` executor at **81.6%**, while the other critical packages exceed 90%.
 - A fixed 3×3 proposal ensemble used **3.35×** the mean synthetic tokens without improving fixture results.
 - **One command:** `make demo`.
@@ -116,7 +116,7 @@ See the [mechanism study](benchmarks/reports/mechanism.md), [hosted pilot](bench
 make release-check
 ```
 
-**51 Python tests · Go race detector · 82.3–83.0% overall Go coverage · 92.9% policy coverage · 81.6% Linux / 94.1% macOS executor-package coverage · strict mypy · Ruff · `go vet` · fuzz targets · mutation gate · secret scanning · reproducible evidence audit · container builds**
+**51 Python tests · Go race detector · 82.3% Linux / 83.0% macOS overall Go coverage · 92.9% policy coverage · 81.6% Linux / 94.1% macOS executor-package coverage · strict mypy · Ruff · `go vet` · fuzz targets · mutation gate · secret scanning · reproducible evidence audit · container builds**
 
 The release gate checks schemas, tests, formatting, static analysis, architecture
 direction, coverage ratchets, recruiter-facing metrics, documentation links,
