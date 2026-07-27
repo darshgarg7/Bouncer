@@ -305,193 +305,42 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 			noProgressStreak++
 			continue
 		}
-		turnRouterConfig := routerConfig
-		turnRouterConfig.RandomSeed = seed + int64(turn)
-		routingContext, routingSpan := otel.Tracer("bouncer/control").Start(
-			ctx,
-			"candidate.route",
-			trace.WithAttributes(attribute.String("bouncer.routing.strategy", turnRouterConfig.Strategy)),
-		)
-		selection, err := router.SelectWithConfig(routingBatch.Candidates, turnRouterConfig)
-		if err != nil {
-			markSpanError(routingSpan, err)
-			routingSpan.End()
-			return Result{}, fmt.Errorf("turn %d route candidates: %w", turn, err)
-		}
-		learningEvidence := map[string]any{"mode": learningConfig.Mode}
-		selectedTransitionNLL := 0.0
-		if learningConfig.Mode != LearningDisabled {
-			learnedBatch, scoreErr := l.LearningScorer.Score(routingContext, learning.Context{
-				TaskID:            task.TaskID,
-				Turn:              turn,
-				MaxTurns:          l.MaxTurns,
-				State:             state,
-				Policy:            task.Policy,
-				PreviousOperation: previousOperation,
-				RecentRejections:  recentRejections,
-				NoProgressStreak:  noProgressStreak,
-			}, routingBatch.Candidates)
-			if scoreErr != nil {
-				markSpanError(routingSpan, scoreErr)
-				routingSpan.End()
-				return Result{}, fmt.Errorf("turn %d learned scoring: %w", turn, scoreErr)
-			}
-			learnedSelection, selectErr := router.SelectLearned(
-				learnedBatch.Predictions,
-				learningConfig.Router,
-			)
-			if selectErr != nil {
-				if learningConfig.Mode == LearningActive {
-					markSpanError(routingSpan, selectErr)
-					routingSpan.End()
-					return Result{}, fmt.Errorf("turn %d learned routing: %w", turn, selectErr)
-				}
-				learningEvidence = map[string]any{
-					"mode":                   learningConfig.Mode,
-					"metadata":               learnedBatch.Metadata,
-					"predictions":            learningPredictionEvidence(learnedBatch.Predictions),
-					"frontier_candidate_ids": []string{},
-					"shadow_error":           selectErr.Error(),
-					"router":                 learningConfig.Router,
-				}
-			} else {
-				learningEvidence = map[string]any{
-					"mode":                   learningConfig.Mode,
-					"metadata":               learnedBatch.Metadata,
-					"predictions":            learningPredictionEvidence(learnedBatch.Predictions),
-					"frontier_candidate_ids": learnedSelection.FrontierCandidateIDs,
-					"shadow_action_id":       learnedSelection.Selected.Candidate.CandidateID,
-					"disagrees":              learnedSelection.Selected.Candidate.CandidateID != selection.Selected.CandidateID,
-					"router":                 learningConfig.Router,
-				}
-			}
-			if learningConfig.Mode == LearningActive && selectErr == nil {
-				selectedObjectives, found := calibratedObjectives(
-					routingBatch.Candidates,
-					learnedSelection.Selected.Candidate.CandidateID,
-				)
-				if !found {
-					routingSpan.End()
-					return Result{}, fmt.Errorf("turn %d learned selection is outside calibrated safe set", turn)
-				}
-				selection.Selected = learnedSelection.Selected.Candidate
-				selection.SelectedRoutingObjectives = selectedObjectives
-				selection.Strategy = learnedSelection.Strategy
-				selection.SelectionProbability = learnedSelection.SelectionProbability
-				selection.SelectionScore = 0
-				result.RoutingStrategy = learnedSelection.Strategy
-			}
-			selectedTransitionNLL = predictionTransitionNLL(
-				learnedBatch.Predictions,
-				selection.Selected.CandidateID,
-			)
-		}
-		stateDigest, err := stateSHA256(state)
-		if err != nil {
-			routingSpan.End()
-			return Result{}, err
-		}
-		if err := l.record(routingContext, &result, TraceEvent{
-			EventType: "candidate.selected",
-			StepID:    turn,
-			Payload: map[string]any{
-				"action_id":              selection.Selected.CandidateID,
-				"objective_source":       "trusted_calibration_artifact",
-				"objective_calibration":  l.Calibrator.Metadata(),
-				"objective_records":      routingBatch.Records,
-				"routing_objectives":     selection.SelectedRoutingObjectives,
-				"strategy":               selection.Strategy,
-				"selection_probability":  selection.SelectionProbability,
-				"selection_score":        selection.SelectionScore,
-				"risk_ceiling":           turnRouterConfig.RiskCeiling,
-				"epsilon":                turnRouterConfig.Epsilon,
-				"weights":                turnRouterConfig.Weights,
-				"ranked":                 rankedEvidence(selection.Ranked),
-				"decision_id":            fmt.Sprintf("%s:%d", task.TaskID, turn),
-				"behavior_probability":   selection.SelectionProbability,
-				"state":                  stateEvidence(state, stateDigest),
-				"eligible_candidates":    candidateEvidence(routingBatch.Candidates),
-				"feature_schema_version": learning.FeatureSchemaVersion,
-				"learning":               learningEvidence,
-			},
-		}); err != nil {
-			markSpanError(routingSpan, err)
-			routingSpan.End()
-			return Result{}, err
-		}
-		routingSpan.End()
-		executionContext, executionSpan := otel.Tracer("bouncer/control").Start(
-			ctx,
-			"action.execute",
-			trace.WithAttributes(
-				attribute.String("bouncer.action.id", selection.Selected.CandidateID),
-				attribute.String("bouncer.operation", selection.Selected.OperationClass),
-			),
-		)
-		progressBefore := taskProgress(task, state)
-		stateBeforeDigest := stateDigest
-		hazardBefore := state.HazardInjected
-		executionStarted := time.Now()
-		outcome, err := l.Executor.Execute(executionContext, &state, task.Policy, selection.Selected)
-		if err != nil {
-			markSpanError(executionSpan, err)
-			executionSpan.End()
-			return Result{}, fmt.Errorf("turn %d execute %s: %w", turn, selection.Selected.CandidateID, err)
-		}
-		executionLatencyMS := float64(time.Since(executionStarted).Microseconds()) / 1000
-		stateAfterDigest, err := stateSHA256(state)
-		if err != nil {
-			executionSpan.End()
-			return Result{}, err
-		}
-		progressAfter := taskProgress(task, state)
-		progressDelta := progressAfter - progressBefore
-		window, monitorErr := monitor.Observe(monitoring.Observation{
-			RejectedCandidates: result.ConstraintRejections - rejectionsBeforeTurn,
-			CandidateCount:     turnCandidateCount,
-			ProgressDelta:      progressDelta,
-			MutationCount:      state.MutationCount,
-			MaxMutations:       task.Policy.MaxMutations,
-			Operation:          selection.Selected.OperationClass,
-			LatencyMS:          executionLatencyMS,
-			TransitionNLL:      selectedTransitionNLL,
+		routingStage, err := l.routeStage(routingStageInput{
+			Context:           ctx,
+			Result:            &result,
+			Task:              task,
+			State:             state,
+			Turn:              turn,
+			Seed:              seed,
+			BaselineConfig:    routerConfig,
+			LearningConfig:    learningConfig,
+			Candidates:        routingBatch,
+			PreviousOperation: previousOperation,
+			RecentRejections:  recentRejections,
+			NoProgressStreak:  noProgressStreak,
 		})
-		if monitorErr != nil {
-			executionSpan.End()
-			return Result{}, fmt.Errorf("turn %d monitor outcome: %w", turn, monitorErr)
-		}
-		result.MonitoringAlerts += len(window.RuleAlerts)
-		result.ExecutedActions++
-		if err := l.record(executionContext, &result, TraceEvent{
-			EventType: "execution.completed",
-			StepID:    turn,
-			Payload: map[string]any{
-				"action_id":           selection.Selected.CandidateID,
-				"operation":           selection.Selected.OperationClass,
-				"outcome":             outcome,
-				"decision_id":         fmt.Sprintf("%s:%d", task.TaskID, turn),
-				"state_before_sha256": stateBeforeDigest,
-				"state_after_sha256":  stateAfterDigest,
-				"latency_ms":          executionLatencyMS,
-				"cost_units":          nil,
-				"cost_censored":       true,
-				"progress_before":     progressBefore,
-				"progress_after":      progressAfter,
-				"progress_delta":      progressDelta,
-				"adverse":             state.HazardInjected && !hazardBefore,
-				"terminal":            state.TaskComplete,
-				"censored":            false,
-				"monitoring":          window,
-			},
-		}); err != nil {
-			markSpanError(executionSpan, err)
-			executionSpan.End()
+		if err != nil {
 			return Result{}, err
 		}
-		executionSpan.End()
-		previousOperation = selection.Selected.OperationClass
-		recentRejections = result.ConstraintRejections - rejectionsBeforeTurn
-		noProgressStreak = window.Features.NoProgressStreak
+		executionStage, err := l.executeStage(executionStageInput{
+			Context:               ctx,
+			Result:                &result,
+			Task:                  task,
+			State:                 &state,
+			Turn:                  turn,
+			Selection:             routingStage.Selection,
+			StateBeforeDigest:     routingStage.StateDigest,
+			RejectedCandidates:    result.ConstraintRejections - rejectionsBeforeTurn,
+			CandidateCount:        turnCandidateCount,
+			SelectedTransitionNLL: routingStage.SelectedTransitionNLL,
+			Monitor:               monitor,
+		})
+		if err != nil {
+			return Result{}, err
+		}
+		previousOperation = executionStage.Operation
+		recentRejections = executionStage.Rejections
+		noProgressStreak = executionStage.NoProgressStreak
 	}
 
 	oracle := task.Evaluate(state)

@@ -29,9 +29,10 @@ var codePriority = map[string]int{
 	"OPERATION_NOT_ALLOWED":       2,
 	"INVALID_TARGET":              3,
 	"TARGET_OUTSIDE_ALLOWED_ROOT": 4,
-	"PROTECTED_PATH":              5,
-	"MUTATION_LIMIT_EXCEEDED":     6,
-	"MISSING_DEPENDENCY":          7,
+	"READ_DENIED":                 5,
+	"PROTECTED_PATH":              6,
+	"MUTATION_LIMIT_EXCEEDED":     7,
+	"MISSING_DEPENDENCY":          8,
 }
 
 var detailOrder = []string{"field", "operation", "dependency", "target", "current", "maximum"}
@@ -154,7 +155,17 @@ func (e *Evaluator) evaluateOne(
 				"target", normalizedTarget,
 			))
 		}
-		if candidate.OperationClass != "filesystem.read" {
+		if candidate.OperationClass == "filesystem.read" {
+			for _, denied := range policy.DeniedReadPaths {
+				if pathWithin(normalizedTarget, denied) {
+					violations = append(violations, newViolation(
+						"READ_DENIED",
+						"target", normalizedTarget,
+					))
+					break
+				}
+			}
+		} else {
 			for _, protected := range policy.ProtectedPaths {
 				if pathWithin(normalizedTarget, protected) {
 					violations = append(violations, newViolation(

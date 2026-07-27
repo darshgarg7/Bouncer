@@ -1,6 +1,7 @@
 package router
 
 import (
+	"math"
 	"testing"
 
 	"bouncer/internal/action"
@@ -44,6 +45,70 @@ func TestSelectLearnedAppliesRiskAndUncertaintyLimits(t *testing.T) {
 	}
 	if selection.Selected.Candidate.CandidateID != "safe" {
 		t.Fatalf("selected %q", selection.Selected.Candidate.CandidateID)
+	}
+}
+
+func TestSelectLearnedCapsFrontierWithCrowdingDeterministically(t *testing.T) {
+	predictions := make([]learning.Prediction, 0, 6)
+	for index := 1; index <= 6; index++ {
+		value := float64(index)
+		predictions = append(predictions, learnedPrediction(
+			string(rune('a'+index-1)),
+			value/6,
+			value/6,
+			value,
+			value,
+			value/10,
+			0.01,
+		))
+	}
+	config := LearnedConfig{RiskCeiling: 1, MaxRelativeUncertainty: 1, FrontierLimit: 3}
+	first, err := SelectLearned(predictions, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := SelectLearned(predictions, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.FrontierCandidateIDs) != 3 || first.Selected.Candidate.CandidateID != second.Selected.Candidate.CandidateID {
+		t.Fatalf("unexpected deterministic cap: first=%+v second=%+v", first, second)
+	}
+}
+
+func TestLearnedSelectionRejectsInvalidConfigurationPredictionsAndDuplicates(t *testing.T) {
+	for name, config := range map[string]LearnedConfig{
+		"risk":        {RiskCeiling: 2, MaxRelativeUncertainty: 1, FrontierLimit: 1},
+		"uncertainty": {RiskCeiling: 1, MaxRelativeUncertainty: -1, FrontierLimit: 1},
+		"frontier":    {RiskCeiling: 1, MaxRelativeUncertainty: 1, FrontierLimit: 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := SelectLearned([]learning.Prediction{learnedPrediction("a", 1, 1, 1, 1, 0, 0)}, config); err == nil {
+				t.Fatal("invalid learned configuration was accepted")
+			}
+		})
+	}
+	base := learnedPrediction("a", 1, 1, 1, 1, 0, 0)
+	for name, mutate := range map[string]func(*learning.Prediction){
+		"candidate":   func(value *learning.Prediction) { value.Candidate.Tool = "" },
+		"estimate":    func(value *learning.Prediction) { value.Progress.Mean = math.Inf(1) },
+		"uncertainty": func(value *learning.Prediction) { value.Success.Uncertainty = -1 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			value := base
+			value.Features = map[string]float64{}
+			mutate(&value)
+			if _, err := SelectLearned([]learning.Prediction{value}, DefaultLearnedConfig()); err == nil {
+				t.Fatal("invalid prediction was accepted")
+			}
+		})
+	}
+	deduplicated, err := SelectLearned([]learning.Prediction{base, base}, DefaultLearnedConfig())
+	if err != nil || len(deduplicated.Ranked) != 1 {
+		t.Fatalf("duplicate prediction was not deterministically collapsed: %+v error=%v", deduplicated, err)
+	}
+	if _, err := SelectLearned(nil, DefaultLearnedConfig()); err == nil {
+		t.Fatal("empty predictions were accepted")
 	}
 }
 

@@ -218,7 +218,13 @@ func validateRequestedPolicy(
 	if !pathAllowed {
 		return fmt.Errorf("sandbox policy does not allow target %q", target)
 	}
-	if candidate.OperationClass != "filesystem.read" {
+	if candidate.OperationClass == "filesystem.read" {
+		for _, denied := range policy.DeniedReadPaths {
+			if pathWithin(target, denied) {
+				return fmt.Errorf("sandbox policy denies reading target %q", target)
+			}
+		}
+	} else {
 		for _, protected := range policy.ProtectedPaths {
 			if pathWithin(target, protected) {
 				return fmt.Errorf("sandbox policy protects target %q", target)

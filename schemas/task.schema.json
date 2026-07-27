@@ -31,6 +31,11 @@
           "items": {"type": "string", "minLength": 1},
           "uniqueItems": true
         },
+        "denied_read_paths": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
         "max_mutations": {"type": "integer", "minimum": 0}
       }
     },

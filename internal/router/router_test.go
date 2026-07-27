@@ -2,6 +2,7 @@ package router
 
 import (
 	"math"
+	"reflect"
 	"testing"
 
 	"bouncer/internal/action"
@@ -296,9 +297,17 @@ func FuzzRankNeverPanics(f *testing.F) {
 		if math.IsNaN(risk) || math.IsInf(risk, 0) || risk < 0 || risk > 1 {
 			risk = 0
 		}
-		_, _ = Rank([]action.ScoredCandidate{
+		candidates := []action.ScoredCandidate{
 			candidate("a", "workspace/a", latency, cost, risk),
 			candidate("b", "workspace/b", cost, latency, 1-risk),
-		})
+		}
+		first, firstErr := Rank(candidates)
+		second, secondErr := Rank(candidates)
+		if (firstErr == nil) != (secondErr == nil) {
+			t.Fatalf("repeated ranking changed error state: %v then %v", firstErr, secondErr)
+		}
+		if firstErr == nil && !reflect.DeepEqual(first, second) {
+			t.Fatalf("repeated ranking was nondeterministic: %+v then %+v", first, second)
+		}
 	})
 }

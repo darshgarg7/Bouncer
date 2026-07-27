@@ -3,6 +3,7 @@ package action
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 )
@@ -41,6 +42,73 @@ func TestObjectivesRejectOutOfRangeRisk(t *testing.T) {
 	objectives := Objectives{LatencyMS: 1, CostUnits: 1, SafetyRisk: 1.1}
 	if err := objectives.Validate(); err == nil {
 		t.Fatal("Validate returned nil for out-of-range safety risk")
+	}
+}
+
+func TestCandidateAndObjectivesRejectMalformedFields(t *testing.T) {
+	valid := Candidate{
+		CandidateID:          "candidate-1",
+		OperationClass:       "filesystem.read",
+		Tool:                 "read_file",
+		Target:               "workspace/file",
+		Arguments:            map[string]any{},
+		DeclaredDependencies: []string{},
+		EstimatedObjectives:  Objectives{LatencyMS: 1, CostUnits: 1, SafetyRisk: 0.1},
+	}
+	tests := map[string]func(*Candidate){
+		"candidate ID":  func(value *Candidate) { value.CandidateID = " bad" },
+		"operation":     func(value *Candidate) { value.OperationClass = "unknown" },
+		"empty tool":    func(value *Candidate) { value.Tool = " " },
+		"long tool":     func(value *Candidate) { value.Tool = strings.Repeat("x", 129) },
+		"empty target":  func(value *Candidate) { value.Target = " " },
+		"long target":   func(value *Candidate) { value.Target = strings.Repeat("x", 1025) },
+		"arguments":     func(value *Candidate) { value.Arguments = nil },
+		"empty dep":     func(value *Candidate) { value.DeclaredDependencies = []string{" "} },
+		"long dep":      func(value *Candidate) { value.DeclaredDependencies = []string{strings.Repeat("x", 129)} },
+		"duplicate dep": func(value *Candidate) { value.DeclaredDependencies = []string{"read", "read"} },
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			candidate := valid
+			mutate(&candidate)
+			if err := candidate.Validate(); err == nil {
+				t.Fatal("Validate accepted malformed candidate")
+			}
+		})
+	}
+
+	for name, objectives := range map[string]Objectives{
+		"NaN latency":      {LatencyMS: math.NaN()},
+		"infinite cost":    {CostUnits: math.Inf(1)},
+		"negative latency": {LatencyMS: -1},
+		"negative cost":    {CostUnits: -1},
+		"negative risk":    {SafetyRisk: -1},
+		"large risk":       {SafetyRisk: 1.1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := objectives.Validate(); err == nil {
+				t.Fatal("Validate accepted malformed objectives")
+			}
+		})
+	}
+	scored := ScoredCandidate{Candidate: valid, RoutingObjectives: Objectives{LatencyMS: -1}}
+	if err := scored.Validate(); err == nil || !strings.Contains(err.Error(), "routing objectives") {
+		t.Fatalf("scored candidate returned %v", err)
+	}
+}
+
+func TestBeamValidationRejectsInvalidWidthsAndActions(t *testing.T) {
+	for _, width := range []int{0, 17} {
+		if err := (Beam{}).ValidateWidth(width); err == nil {
+			t.Fatalf("accepted width %d", width)
+		}
+	}
+	invalid := Beam{Actions: make([]Candidate, BeamWidth)}
+	if err := invalid.Validate(); err == nil || !strings.Contains(err.Error(), "action 0") {
+		t.Fatalf("invalid default beam returned %v", err)
+	}
+	if _, err := DecodeBeamStrict([]byte(validBeamJSON() + "{")); err == nil || !strings.Contains(err.Error(), "trailing content") {
+		t.Fatalf("malformed trailing content returned %v", err)
 	}
 }
 

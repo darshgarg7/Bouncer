@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"math"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,6 +76,101 @@ func TestArtifactRejectsUnknownFeature(t *testing.T) {
 	artifact.Models.Progress.Coefficients["provider_says_it_is_safe"] = 1
 	if _, err := New(artifact); err == nil {
 		t.Fatal("New accepted an unknown feature")
+	}
+}
+
+func TestArtifactLoadMetadataAndValidationFailures(t *testing.T) {
+	valid := testArtifact()
+	data, err := json.Marshal(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "artifact.json")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.Metadata().ArtifactID != valid.ArtifactID || runtime.Metadata().ArtifactSHA256 == "" {
+		t.Fatalf("unexpected metadata: %+v", runtime.Metadata())
+	}
+	var nilRuntime *Runtime
+	if metadata := nilRuntime.Metadata(); metadata != (Metadata{}) {
+		t.Fatalf("nil runtime metadata=%+v", metadata)
+	}
+	if _, err := Load(filepath.Join(t.TempDir(), "missing")); err == nil || !strings.Contains(err.Error(), "read") {
+		t.Fatalf("missing artifact returned %v", err)
+	}
+	malformed := filepath.Join(t.TempDir(), "malformed.json")
+	if err := os.WriteFile(malformed, []byte(`{"schema_version":"0.1.0"} {}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(malformed); err == nil {
+		t.Fatal("Load accepted malformed artifact")
+	}
+
+	tests := map[string]func(*Artifact){
+		"schema":            func(value *Artifact) { value.SchemaVersion = "old" },
+		"feature schema":    func(value *Artifact) { value.FeatureSchemaVersion = "old" },
+		"empty ID":          func(value *Artifact) { value.ArtifactID = " " },
+		"long ID":           func(value *Artifact) { value.ArtifactID = strings.Repeat("x", 129) },
+		"created":           func(value *Artifact) { value.CreatedAt = time.Time{} },
+		"method":            func(value *Artifact) { value.Provenance.Method = " " },
+		"dataset hash":      func(value *Artifact) { value.Provenance.DatasetSHA256 = "BAD" },
+		"training rows":     func(value *Artifact) { value.Provenance.TrainingRows = 0 },
+		"validation rows":   func(value *Artifact) { value.Provenance.ValidationRows = -1 },
+		"confidence NaN":    func(value *Artifact) { value.ConfidenceMultiplier = math.NaN() },
+		"confidence high":   func(value *Artifact) { value.ConfidenceMultiplier = 11 },
+		"model link":        func(value *Artifact) { value.Models.Progress.Link = "unknown" },
+		"model intercept":   func(value *Artifact) { value.Models.Progress.Intercept = math.Inf(1) },
+		"model uncertainty": func(value *Artifact) { value.Models.Progress.Uncertainty = -1 },
+		"unknown feature":   func(value *Artifact) { value.Models.Progress.Coefficients["unknown"] = 1 },
+		"coefficient NaN":   func(value *Artifact) { value.Models.Progress.Coefficients["candidate_mutating"] = math.NaN() },
+		"required link":     func(value *Artifact) { value.Models.Success.Link = "identity" },
+		"fallback":          func(value *Artifact) { value.TransitionPrior.FallbackProbability = 0 },
+		"empty previous":    func(value *Artifact) { value.TransitionPrior.Probabilities[""] = map[string]float64{"read": 1} },
+		"empty operation":   func(value *Artifact) { value.TransitionPrior.Probabilities["read"] = map[string]float64{"": 1} },
+		"bad probability":   func(value *Artifact) { value.TransitionPrior.Probabilities["read"] = map[string]float64{"write": 2} },
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			artifact := testArtifact()
+			mutate(&artifact)
+			if _, err := New(artifact); err == nil {
+				t.Fatal("New accepted malformed artifact")
+			}
+		})
+	}
+}
+
+func TestScorerRejectsInvalidRuntimeContextAndCandidates(t *testing.T) {
+	var nilRuntime *Runtime
+	if _, err := nilRuntime.Score(context.Background(), Context{}, nil); err == nil {
+		t.Fatal("nil runtime scored candidates")
+	}
+	runtime, err := New(testArtifact())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := runtime.Score(ctx, Context{}, nil); err == nil {
+		t.Fatal("canceled context was accepted")
+	}
+	if _, err := runtime.Score(context.Background(), Context{MaxTurns: 1}, nil); err == nil {
+		t.Fatal("empty candidate set was accepted")
+	}
+	invalid := action.ScoredCandidate{Candidate: action.Candidate{CandidateID: "bad"}}
+	if _, err := runtime.Score(context.Background(), Context{MaxTurns: 1}, []action.ScoredCandidate{invalid}); err == nil {
+		t.Fatal("invalid candidate was accepted")
+	}
+	if _, err := runtime.Score(context.Background(), Context{Turn: -1, MaxTurns: 1}, []action.ScoredCandidate{invalid}); err == nil {
+		t.Fatal("invalid turn horizon was accepted")
+	}
+	if inverseLink("identity", 2) != 2 || inverseLink("logit", 1000) != 1 {
+		t.Fatal("inverse link boundary behavior changed")
 	}
 }
 
@@ -167,4 +264,20 @@ func testArtifact() Artifact {
 			},
 		},
 	}
+}
+
+func FuzzArtifactValidationNeverPanics(f *testing.F) {
+	valid, err := json.Marshal(testArtifact())
+	if err != nil {
+		f.Fatal(err)
+	}
+	f.Add(valid)
+	f.Add([]byte(`{"schema_version":"0.1.0","unknown":true}`))
+	f.Add([]byte("not-json"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		artifact, err := decodeStrict(data)
+		if err == nil {
+			_, _ = New(artifact)
+		}
+	})
 }

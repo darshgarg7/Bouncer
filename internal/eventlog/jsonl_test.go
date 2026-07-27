@@ -2,9 +2,15 @@ package eventlog
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 	"testing"
+	"time"
+
+	"bouncer/internal/control"
 )
 
 func TestWriterAppendsIndependentJSONLines(t *testing.T) {
@@ -208,4 +214,113 @@ func TestWriterRejectsUnknownEventType(t *testing.T) {
 	if output.Len() != 0 {
 		t.Fatal("invalid event was written")
 	}
+}
+
+func TestEventValidationAndWriterFailurePaths(t *testing.T) {
+	base := Event{
+		SchemaVersion: SchemaVersion,
+		EventID:       "event",
+		EventType:     "run.started",
+		RunID:         "run",
+		TaskID:        "task",
+		Attempt:       1,
+		Sequence:      1,
+		Timestamp:     time.Now().UTC(),
+		Payload:       map[string]any{},
+		PreviousHash:  GenesisHash,
+		Hash:          GenesisHash,
+	}
+	tests := map[string]func(*Event){
+		"schema":        func(event *Event) { event.SchemaVersion = "old" },
+		"type":          func(event *Event) { event.EventType = "unknown" },
+		"identity":      func(event *Event) { event.RunID = "" },
+		"step":          func(event *Event) { event.StepID = -1 },
+		"attempt":       func(event *Event) { event.Attempt = 0 },
+		"sequence":      func(event *Event) { event.Sequence = 0 },
+		"timestamp":     func(event *Event) { event.Timestamp = time.Time{} },
+		"payload":       func(event *Event) { event.Payload = nil },
+		"previous hash": func(event *Event) { event.PreviousHash = "bad" },
+		"hash":          func(event *Event) { event.Hash = strings.Repeat("A", 64) },
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			event := base
+			mutate(&event)
+			if err := event.Validate(); err == nil {
+				t.Fatal("Validate accepted malformed event")
+			}
+		})
+	}
+
+	var output bytes.Buffer
+	writer := NewWriter(&output)
+	valid := Event{EventType: "run.started", RunID: "run", TaskID: "task", Payload: map[string]any{}}
+	invalidSequence := valid
+	invalidSequence.Sequence = 2
+	if err := writer.Append(invalidSequence); err == nil {
+		t.Fatal("writer accepted non-monotonic sequence")
+	}
+	invalidPrevious := valid
+	invalidPrevious.PreviousHash = strings.Repeat("a", 64)
+	if err := writer.Append(invalidPrevious); err == nil {
+		t.Fatal("writer accepted wrong previous hash")
+	}
+	invalidHash := valid
+	invalidHash.Hash = strings.Repeat("a", 64)
+	if err := writer.Append(invalidHash); err == nil {
+		t.Fatal("writer accepted wrong content hash")
+	}
+}
+
+type failingSyncWriter struct{ bytes.Buffer }
+
+func (failingSyncWriter) Sync() error { return errors.New("sync failed") }
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+func TestWriterAndTraceSinkPropagateStorageAndContextFailures(t *testing.T) {
+	event := Event{EventType: "run.started", RunID: "run", TaskID: "task", Payload: map[string]any{}}
+	if err := NewWriter(&failingSyncWriter{}).Append(event); err == nil || !strings.Contains(err.Error(), "sync") {
+		t.Fatalf("sync failure returned %v", err)
+	}
+	if err := NewWriter(failingWriter{}).Append(event); err == nil || !strings.Contains(err.Error(), "append event") {
+		t.Fatalf("write failure returned %v", err)
+	}
+	trace := control.TraceEvent{EventType: "run.started", Payload: map[string]any{}}
+	if err := (TraceSink{}).Append(context.Background(), trace); err == nil {
+		t.Fatal("nil trace writer was accepted")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := (TraceSink{}).Append(ctx, trace); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled trace returned %v", err)
+	}
+	var output bytes.Buffer
+	sink := TraceSink{Writer: NewWriter(&output), RunID: "run", TaskID: "task", Seed: 7}
+	if err := sink.Append(context.Background(), trace); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func FuzzVerifyNeverPanics(f *testing.F) {
+	var valid bytes.Buffer
+	writer := NewWriter(&valid)
+	for _, eventType := range []string{"run.started", "proposal.completed", "run.completed"} {
+		if err := writer.Append(Event{
+			EventType: eventType,
+			RunID:     "fuzz-run",
+			TaskID:    "fuzz-task",
+			Payload:   map[string]any{"event": eventType},
+		}); err != nil {
+			f.Fatal(err)
+		}
+	}
+	f.Add(valid.Bytes())
+	f.Add([]byte(`{"schema_version":"0.2.0"}` + "\n"))
+	f.Add([]byte("not-json\n"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = Verify(bytes.NewReader(data))
+	})
 }

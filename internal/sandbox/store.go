@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 
 	"bouncer/internal/executor"
@@ -301,7 +302,5 @@ func validateKey(key string) error {
 }
 
 func responsesEqual(left, right executor.ExecutionResponse) bool {
-	leftJSON, leftErr := json.Marshal(left)
-	rightJSON, rightErr := json.Marshal(right)
-	return leftErr == nil && rightErr == nil && bytes.Equal(leftJSON, rightJSON)
+	return reflect.DeepEqual(left, right)
 }
