@@ -11,12 +11,13 @@ RUFF ?= ruff
 MYPY ?= mypy
 endif
 
-.PHONY: help bootstrap build check containers coverage format format-check fuzz-smoke lint test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation
+.PHONY: help bootstrap build check containers coverage format format-check fuzz-smoke lint release-audit release-check test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation
 
 help:
 	@echo "Common targets:"
 	@echo "  bootstrap  Create .venv and install development dependencies"
 	@echo "  check      Run tests, formatting checks, linters, and builds"
+	@echo "  release-check  Run every publication gate, including evidence audits"
 	@echo "  format     Apply Go and Python formatting"
 	@echo "  coverage   Enforce the current Go coverage ratchet"
 	@echo "  build      Build command binaries under bin/"
@@ -40,6 +41,11 @@ containers:
 test: validate-contracts test-go test-python
 
 check: test format-check lint build
+
+release-check: check coverage release-audit
+
+release-audit:
+	$(PYTHON) tools/release_audit.py
 
 coverage:
 	./tools/check_go_coverage.sh

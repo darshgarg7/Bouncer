@@ -4,6 +4,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.23%2B-00ADD8?style=flat-square&logo=go&logoColor=white)](https://golang.org)
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![CI](https://github.com/DarshGarg/Bouncer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DarshGarg/Bouncer/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-success?style=flat-square)](LICENSE)
 
 LLMs are useful action proposers, but poor authorization mechanisms: their
@@ -46,6 +47,7 @@ flowchart TD
 ```
 
 For a narrative tour of the control loop, state machine, and transition verification, read the [System-Design Walkthrough](docs/SYSTEM_DESIGN_WALKTHROUGH.md).
+For the short version, play the [75-second terminal demo](docs/DEMO.md).
 
 ---
 
@@ -95,6 +97,8 @@ make check
 
 `make bootstrap` creates `.venv`; `make check` validates fixtures, runs Go and
 Python tests, checks formatting and static analysis, and builds all five binaries.
+`make release-check` adds the coverage ratchet, documentation-link and credential
+audits, report/claim consistency, source fingerprints, and hosted-pilot anchors.
 
 Start the deterministic OpenAI-compatible simulator:
 
@@ -167,41 +171,55 @@ their inference overhead. The controlled fixture study did not justify it:
 
 | Configuration | Pass Rate | Severe Mutations | Mean Synthetic Tokens/Success | Relative Token Cost |
 | :--- | :---: | :---: | :---: | :---: |
-| **Single Proposer + Policy (Default)** | **100%** | **0/50** | **2,169** | **1.0x (Baseline)** |
-| Adaptive 1→3 Proposers (Width 3) | 100% | 0/50 | 2,626 | 1.21x |
-| One Five-Action Beam + Pareto Utility | 100% | 0/50 | 3,182 | 1.47x |
-| Fixed 3×3 Ensemble | 100% | 0/50 | 7,878 | 3.63x |
-| *Uniform Random-Safe (Control)* | *50%* | *0/50* | *3,279* | *1.51x* |
+| **Single Proposer + Policy (Default)** | **100%** | **0/50** | **3,257** | **1.0x (Baseline)** |
+| One Five-Action Beam + First Valid | 100% | 0/50 | 4,194 | 1.29x |
+| Fixed 3×3 Ensemble | 100% | 0/50 | 10,915 | 3.35x |
+| Adaptive 1→3×3 | 100% | 0/50 | 10,915 | 3.35x |
+| Scalar / Pareto / ε-Pareto | 0% | 0/50 each | Not estimable | Not comparable |
+| *Uniform Random-Safe (Control)* | *2%* | *0/50* | *4,941 (one success)* | *Not comparable* |
 
 - **Fixed ensemble overhead was not justified in this study:** fixed 3×3 used
-  3.63× as many mean synthetic tokens as the default with identical fixture pass
-  and severe-mutation counts. Adaptive 1→3×3 used 1.21× as many.
+  3.35× as many mean synthetic tokens as the default with identical fixture pass
+  and severe-mutation counts. Adaptive expansion triggered on every turn and
+  therefore matched the fixed ensemble's cost.
+- **The zero-influence bootstrap is intentionally weak:** scalar and Pareto
+  strategies could not recover task progress from static operation priors. That
+  negative result is why those routers are not the default and why empirical
+  objective calibration remains a prerequisite for reconsidering them.
 - **Single proposer + Go policy is the default:** the project follows its stop
   rule; wider beams, ensembles, and alternative routers remain explicit
   experiments.
 
-A separate historical integration study reported 9,555 mean synthetic tokens
-per success for the original 3×5 design. It is [reported separately](benchmarks/reports/synthetic-mvb.md)
-because its comparison conditions differ from the policy-held-constant study.
+A separate historical-semantics rerun reports 12,592 mean synthetic tokens per
+success for the original 3×5 design. It uses a clearly labeled identity artifact
+to reproduce the old self-report-driven selector. It is [reported separately](benchmarks/reports/synthetic-mvb.md)
+and cannot be compared directly with the newer study, which holds policy constant
+and uses the zero-influence bootstrap boundary.
 
 <details>
 <summary><b>Real-Provider Connectivity: NVIDIA Hosted Pilot (Nemotron-3)</b></summary>
 
-On July 26, 2026, the frozen single-proposer configuration completed **3/3
+On July 27, 2026, the calibrated single-proposer configuration passed **2/3
 authored virtual tasks** using NVIDIA's hosted Nemotron 3 Ultra model:
 
-- **15 proposal rounds** recorded.
-- **3 policy rejections** followed by successful model replanning.
-- **12 virtual actions** executed.
-- **14,362 provider-reported tokens** on strictly parsed responses.
+- **23 proposal rounds** recorded.
+- **8 rejected proposals** were never executed.
+- **23,296 provider-reported tokens** on strictly parsed responses.
 - **Zero severe virtual mutations** recorded.
 - Every event chain terminated and verified.
+
+Task 001 made the requested file change but exhausted eight turns after repeatedly
+proposing an invalid directory target for `task.complete`; it is recorded as a
+failure. That distinction is the point of the pilot: connectivity and strict
+control-loop completion are not task effectiveness.
 
 This used one model, one seed, the virtual executor, and no comparison baseline.
 It is connectivity and control-loop evidence, not evidence of model quality or
 production safety.
 
-For raw artifacts, see the [NVIDIA Hosted Pilot Report](benchmarks/reports/nvidia-hosted-pilot-2026-07-26/README.md).
+For raw artifacts, see the [NVIDIA Hosted Pilot Report](benchmarks/reports/nvidia-hosted-pilot-2026-07-27/README.md).
+The archived July 26 pilot predates the objective-calibration boundary and is not
+used as the current headline result.
 </details>
 
 <details>
@@ -212,9 +230,9 @@ For raw artifacts, see the [NVIDIA Hosted Pilot Report](benchmarks/reports/nvidi
 | **Candidate Protocol** | Strict typed beams, bounded sizes, unique IDs, trailing-content rejection, explicit `finish_reason` handling | Conformance-tested |
 | **Policy Authority** | Go evaluator for operations, roots, protected paths, dependencies, and mutation limits | 100,000 generated cases match the Python reference |
 | **Objective Trust** | Model estimates are type-separated from router inputs; a hashed artifact bounds, scales, and blends objectives | Default bootstrap gives model estimates zero influence; empirical fits are pending |
-| **Routing Engine** | First-valid, safety-first lexicographic, weighted utility, Pareto-plus-utility, and ε-Pareto policies | Deterministic mechanism study complete |
+| **Routing Engine** | First-valid, safety-first lexicographic, weighted utility, Pareto-plus-utility, and ε-Pareto policies | Advanced strategies remain experimental after negative bootstrap results |
 | **Compute Control** | Optional 1→N adaptive proposal expansion triggered by validity and objective-space spread | Experimental |
-| **Provider Boundary** | OpenAI-compatible adapter + exact recorded-response replay adapter | Published three-task hosted smoke pilot (Nemotron 3) |
+| **Provider Boundary** | OpenAI-compatible adapter + exact recorded-response replay adapter | Published three-task hosted smoke pilot: 2/3 authored virtual tasks passed |
 | **Execution Boundary** | Reversible virtual executor, authenticated remote protocol, transition verification, and idempotency replay | Reference implementation, not a general host-tool sandbox |
 | **Linux Broker** | `openat2` rooted lookup, no symlinks, hard-link denial, bounded I/O, no unrestricted shell commands | Linux-only adversarial tests; independent review pending |
 | **Tamper Evidence** | Complete lifecycle, monotonic sequence, SHA-256 event chains, standalone verifier | Tamper, reorder, truncation, and mixed-identity tests pass; whole-chain replacement requires an external anchor |
@@ -279,6 +297,7 @@ the following milestones (see [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_
 *   **Research & Evaluation**:
     *   [Claims & Evidence Register](docs/CLAIMS.md) – Verifiable boundaries of what has been empirically proven.
     *   [Research Protocol](docs/RESEARCH_PROTOCOL.md) – Pre-specified hypotheses and experiment design.
+    *   [ML Implementation Plan](docs/ML_IMPLEMENTATION_PLAN.md) – Future-only, gated learning-to-rank roadmap.
     *   [Benchmarking Suite](docs/BENCHMARKING.md) – Task environments, baselines, and evaluation parameters.
     *   [Observability & Telemetry](docs/OBSERVABILITY.md) – Metrics, trace propagation, and logs.
 

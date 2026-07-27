@@ -118,6 +118,10 @@ def main() -> None:
         ROOT / "schemas/mechanism-manifest.schema.json",
         ROOT / "benchmarks/mechanism-manifest.json",
     )
+    validate(
+        ROOT / "tools/publication-claims.schema.json",
+        ROOT / "benchmarks/publication-claims.json",
+    )
     task_ids = {path.stem for path in task_paths}
     scenarios = load(ROOT / "benchmarks/scenarios.json")
     if not isinstance(scenarios, dict) or not isinstance(scenarios.get("scenarios"), dict):

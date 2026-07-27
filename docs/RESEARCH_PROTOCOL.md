@@ -21,7 +21,7 @@ Secondary comparisons isolate:
 - fixed 3×3 and 3×5 Bouncer; and
 - Pareto reduction followed by explicit utility.
 
-The controlled smoke study is not confirmatory, but it is an engineering stop signal: single proposer + policy was the lowest-cost passing configuration; fixed 3×3 added 5,708 mean synthetic tokens; adaptive 1→3×3 added 456; and uniform random-safe routing lost 50 percentage points of pass rate. The real experiment therefore treats all ensemble and exploratory policies as challengers, never as assumed improvements.
+The controlled smoke study is not confirmatory, but it is an engineering stop signal: single proposer + policy was the lowest-cost full-pass configuration; fixed and adaptive 3×3 each added 7,658.48 mean paired synthetic tokens; scalar/Pareto/ε-Pareto passed 0/50 under the zero-influence bootstrap; and uniform random-safe passed 1/50. The real experiment therefore treats all ensemble and advanced routing policies as challengers, never as assumed improvements.
 
 ## Hypotheses
 

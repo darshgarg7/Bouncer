@@ -31,8 +31,7 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - run: make check
-      - run: make coverage
+      - run: make release-check
       - if: runner.os == 'Linux'
         run: make fuzz-smoke
 

@@ -1,0 +1,95 @@
+{
+  "schema_version": "0.1.0",
+  "claims": [
+    {
+      "claim_id": "C-003",
+      "artifact": "benchmarks/reports/synthetic-mvb-results.json",
+      "required_text": ["50 synthetic", "zero deliberately injected severe virtual mutations"],
+      "assertions": [
+        {"pointer": "/summaries/bouncer/attempts", "equals": 50},
+        {"pointer": "/summaries/bouncer/successes", "equals": 50},
+        {"pointer": "/summaries/bouncer/severe_mutations", "equals": 0}
+      ]
+    },
+    {
+      "claim_id": "C-004",
+      "artifact": "benchmarks/reports/synthetic-mvb-results.json",
+      "required_text": ["573.3%"],
+      "assertions": [
+        {"pointer": "/comparisons/relative_token_delta", "equals": 5.7326}
+      ]
+    },
+    {
+      "claim_id": "C-005",
+      "artifact": "benchmarks/reports/synthetic-ablation-results.json",
+      "required_text": ["71.1%", "1×3"],
+      "assertions": [
+        {"pointer": "/selected_configuration", "equals": "1x3"},
+        {"pointer": "/summaries/1x3/relative_token_delta_vs_reference", "equals": -0.7112}
+      ]
+    },
+    {
+      "claim_id": "C-006",
+      "artifact": "benchmarks/reports/synthetic-projector-ablation-results.json",
+      "required_text": ["persistent", "without changing fixture decisions"],
+      "assertions": [
+        {"pointer": "/summaries/subprocess/pass_rate", "equals": 1},
+        {"pointer": "/summaries/persistent/pass_rate", "equals": 1},
+        {"pointer": "/selected_mode", "equals": "persistent"}
+      ]
+    },
+    {
+      "claim_id": "C-008",
+      "artifact": "benchmarks/reports/mechanism-results.json",
+      "required_text": ["50/50", "3,256.84"],
+      "assertions": [
+        {"pointer": "/summaries/single_policy/successes", "equals": 50},
+        {"pointer": "/summaries/single_policy/severe_mutations", "equals": 0},
+        {"pointer": "/summaries/single_policy/mean_total_tokens_per_successful_task", "equals": 3256.84}
+      ]
+    },
+    {
+      "claim_id": "C-009",
+      "artifact": "benchmarks/reports/mechanism-results.json",
+      "required_text": ["7,658.48", "adaptive", "fixed"],
+      "assertions": [
+        {"pointer": "/summaries/adaptive_1_to_3x3/successes", "equals": 50},
+        {"pointer": "/summaries/fixed_3x3/successes", "equals": 50},
+        {"pointer": "/comparisons/adaptive_1_to_3x3/mean_paired_token_difference", "equals": 7658.48},
+        {"pointer": "/comparisons/fixed_3x3/mean_paired_token_difference", "equals": 7658.48}
+      ]
+    },
+    {
+      "claim_id": "C-010",
+      "artifact": "benchmarks/reports/mechanism-results.json",
+      "required_text": ["1/50", "0/50", "Pareto"],
+      "assertions": [
+        {"pointer": "/summaries/random_safe/successes", "equals": 1},
+        {"pointer": "/summaries/scalar_utility/successes", "equals": 0},
+        {"pointer": "/summaries/pareto_utility/successes", "equals": 0},
+        {"pointer": "/summaries/epsilon_pareto/successes", "equals": 0}
+      ]
+    },
+    {
+      "claim_id": "C-014",
+      "artifact": "benchmarks/reports/nvidia-hosted-pilot-2026-07-27/summary.json",
+      "required_text": ["2/3", "eight", "all three terminal event chains verified"],
+      "assertions": [
+        {"pointer": "/attempts", "equals": 3},
+        {"pointer": "/successes", "equals": 2},
+        {"pointer": "/constraint_rejections", "equals": 8},
+        {"pointer": "/severe_mutations", "equals": 0}
+      ]
+    },
+    {
+      "claim_id": "C-015",
+      "artifact": "configs/objective-calibration.bootstrap.json",
+      "required_text": ["zero influence", "artifact digest"],
+      "assertions": [
+        {"pointer": "/model_influence/latency_ms", "equals": 0},
+        {"pointer": "/model_influence/cost_units", "equals": 0},
+        {"pointer": "/model_influence/safety_risk", "equals": 0}
+      ]
+    }
+  ]
+}

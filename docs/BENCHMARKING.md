@@ -66,39 +66,43 @@ The share of attempted runs that execute at least one severe mutation. H2 requir
 
 ## Current result
 
-The controlled run completed 150/150 task executions successfully. Bouncer reduced severe-mutation runs from 16/50 to 0/50 and increased synthetic token use by 698.2% relative to LangGraph.
+The historical-semantics controlled rerun completed 150/150 task executions successfully. Bouncer reduced severe-mutation runs from 16/50 to 0/50 and increased synthetic token use by 573.3% relative to LangGraph. This rerun passes model-authored estimates through the explicit `synthetic-legacy-identity-v1` artifact to preserve the old selector semantics; the artifact is not empirical calibration and is not the runtime default.
 
 Read the generated [synthetic MVB report](../benchmarks/reports/synthetic-mvb.md) and [raw per-run summaries](../benchmarks/reports/synthetic-mvb-results.json).
 
 Two follow-up ablations isolate the dominant costs:
 
-- [proposal ablation](../benchmarks/reports/synthetic-ablation.md): 1x3 reduced mean tokens by 72.5% relative to 3x5 while preserving all fixture gates;
-- [projector lifecycle ablation](../benchmarks/reports/synthetic-projector-ablation.md): persistent projection reduced mean local latency from 251 ms to 51 ms without changing decisions.
+- [proposal ablation](../benchmarks/reports/synthetic-ablation.md): 1x3 reduced mean tokens by 71.1% relative to 3x5 while preserving all fixture gates;
+- [projector lifecycle ablation](../benchmarks/reports/synthetic-projector-ablation.md): persistent projection preserved fixture decisions and was about 5.1× faster in this local rerun; exact timings are machine-dependent.
 
 Both remain simulator evidence until repeated in a comparative real-provider study.
 
 The newer [controlled mechanism study](../benchmarks/reports/mechanism.md) made the stop decision explicit:
 
-- single proposer + policy passed 50/50 at 2,169 mean synthetic tokens per success;
-- adaptive 1→3×3 passed 50/50 at 2,626;
-- fixed 3×3 passed 50/50 at 7,878; and
-- uniform random-safe passed only 25/50.
+- single proposer + policy passed 50/50 at 3,256.84 mean synthetic tokens per success;
+- first-valid over a five-action beam passed 50/50 at 4,194.50;
+- adaptive and fixed 3×3 each passed 50/50 at 10,915.32, so adaptive expansion saved no compute here;
+- scalar utility, Pareto utility, and ε-Pareto each passed 0/50 under the zero-influence bootstrap; and
+- uniform random-safe passed only 1/50.
 
-Single proposer + policy is therefore the runtime default. Multi-candidate modes remain experimental.
+Single proposer + policy is therefore the runtime default. Multi-candidate modes remain experimental. The old 3×5 result cannot be directly compared with this study because it uses the legacy identity objective artifact, a different comparison design, and historical routing semantics.
 
 ## Hosted-provider smoke pilot
 
-The checked-in [NVIDIA hosted pilot](../benchmarks/reports/nvidia-hosted-pilot-2026-07-26/README.md)
+The current checked-in [NVIDIA hosted pilot](../benchmarks/reports/nvidia-hosted-pilot-2026-07-27/README.md)
 ran tasks 001–003 through the complete control loop with the frozen single-action
 manifest, canonical Go policy, and virtual executor. The hosted model completed
-3/3 exact task oracles. Three proposed actions were rejected for missing
-dependencies and were not executed; subsequent proposals completed the required
-sequence. All three event chains passed lifecycle and hash verification.
+2/3 exact task oracles. Eight proposed actions were rejected and were not
+executed. Task 001 made the requested file change but did not produce a valid
+`task.complete` target before the turn limit. All three event chains passed
+lifecycle and hash verification.
 
 This pilot is classified E2P rather than E3: its fixtures are authored and
 unaudited, it uses one model and seed, and it has no equal-permission comparison
-condition. Its 14,362 reported tokens describe strictly parsed responses in
-these runs; they do not establish a token advantage.
+condition. Its 23,296 reported tokens describe strictly parsed responses in
+these runs; they do not establish a token advantage. The archived July 26
+result predates the objective-calibration boundary and is not used as current
+evidence.
 
 ## Reproduction
 
