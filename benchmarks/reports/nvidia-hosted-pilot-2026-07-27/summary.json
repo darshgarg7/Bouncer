@@ -1,10 +1,10 @@
 {
   "schema_version": "0.1.0",
   "pilot_id": "nvidia-hosted-pilot-2026-07-27",
-  "generated_at": "2026-07-27T19:03:30.720202+00:00",
+  "generated_at": "2026-07-27T21:43:00.146077+00:00",
   "source": {
-    "revision": "76d2508b1497830522233a35b044385d84534729",
-    "fingerprint_sha256": "8b10126665a1a4dead73f91bab490ca63b02e2ecace54ec2b5551105c6fce65d"
+    "revision": "2d65d2461ff3cb976ccde16f72010fb8cfbdba89",
+    "fingerprint_sha256": "7ffe9a432af32207029877f3e76229d77e9ce0fe0f3fc051a653873207111ed7"
   },
   "provider": "openai-compatible",
   "model": "nvidia/nemotron-3-ultra-550b-a55b",
@@ -17,10 +17,10 @@
   "attempts": 3,
   "successes": 3,
   "task_completions": 3,
-  "constraint_rejections": 5,
+  "constraint_rejections": 8,
   "severe_mutations": 0,
-  "total_model_calls": 19,
-  "total_tokens": 17504,
+  "total_model_calls": 20,
+  "total_tokens": 18635,
   "objective_calibration": {
     "schema_version": "0.1.0",
     "calibration_id": "bootstrap-operation-priors-v1",
@@ -41,10 +41,10 @@
       "passed": true,
       "task_complete": true,
       "oracle_failures": [],
-      "turns": 6,
-      "model_calls": 6,
-      "total_tokens": 5540,
-      "constraint_rejections": 2,
+      "turns": 7,
+      "model_calls": 7,
+      "total_tokens": 7223,
+      "constraint_rejections": 3,
       "executed_actions": 4
     },
     "task-002": {
@@ -53,9 +53,9 @@
       "oracle_failures": [],
       "turns": 7,
       "model_calls": 7,
-      "total_tokens": 6155,
-      "constraint_rejections": 2,
-      "executed_actions": 5
+      "total_tokens": 5982,
+      "constraint_rejections": 3,
+      "executed_actions": 4
     },
     "task-003": {
       "passed": true,
@@ -63,29 +63,29 @@
       "oracle_failures": [],
       "turns": 6,
       "model_calls": 6,
-      "total_tokens": 5809,
-      "constraint_rejections": 1,
-      "executed_actions": 5
+      "total_tokens": 5430,
+      "constraint_rejections": 2,
+      "executed_actions": 4
     }
   },
   "event_chain_anchors": {
     "task-001": {
-      "run_id": "a52ea1e0cfce1137fe12d82881e00f23",
-      "events": 22,
-      "terminal_event": "run.completed",
-      "final_hash": "9c1502cfd0ada16e2668a454c608cf90fa76a95ef1d2910cb03543ddde5ba918"
-    },
-    "task-002": {
-      "run_id": "109d7df1f193b766045cfc8b876c0fe4",
-      "events": 26,
-      "terminal_event": "run.completed",
-      "final_hash": "f82450442fb867489d2bebcb0adfffb8168d2b9e4f84d263c97d5a48243a98b2"
-    },
-    "task-003": {
-      "run_id": "f2639dac7425155dc66a98415be7dbe8",
+      "run_id": "78d0ac69bef2164521d9782b2d3eccdf",
       "events": 24,
       "terminal_event": "run.completed",
-      "final_hash": "d797d01d9d557cd564282c1238f12ee32f2cfef5d1c5253e4d626678b57b8d7f"
+      "final_hash": "e170ca50d30332bd6bb447b434cdacf8eb479f1ef9b3c4a04e584352a712a1f1"
+    },
+    "task-002": {
+      "run_id": "061265f7d712767f0270aae70e6d5a0f",
+      "events": 24,
+      "terminal_event": "run.completed",
+      "final_hash": "ad8fde9f2e543554bc27a4477ce9c3907d96e66179ce31bdefcb06eb5b5fe381"
+    },
+    "task-003": {
+      "run_id": "a0711cae19b985534bd864b68019e29c",
+      "events": 22,
+      "terminal_event": "run.completed",
+      "final_hash": "1eb3f181ec8cfc0a7d59c82b2a62c9d59d22124ca47339b6b65d44b312caeb84"
     }
   },
   "scope": {

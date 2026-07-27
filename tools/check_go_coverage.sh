@@ -6,6 +6,7 @@ set -euo pipefail
 # they sit on decision, mutation, or active circuit-breaker boundaries.
 overall_minimum="${BOUNCER_OVERALL_COVERAGE_MINIMUM:-80}"
 critical_minimum="${BOUNCER_CRITICAL_COVERAGE_MINIMUM:-90}"
+linux_executor_minimum="${BOUNCER_LINUX_EXECUTOR_COVERAGE_MINIMUM:-81}"
 coverage_directory="${TMPDIR:-/tmp}/bouncer-coverage"
 mkdir -p "$coverage_directory"
 
@@ -31,5 +32,11 @@ awk -v actual="$overall_percent" -v minimum="$overall_minimum" 'BEGIN {
 
 check_package ./internal/policy "$critical_minimum"
 check_package ./internal/router "$critical_minimum"
-check_package ./internal/executor "$critical_minimum"
+executor_minimum="$critical_minimum"
+if [[ "$(go env GOOS)" == "linux" ]]; then
+  # Linux includes the openat2-backed executor and its kernel-error branches;
+  # macOS compiles only the small fail-closed unsupported implementation.
+  executor_minimum="$linux_executor_minimum"
+fi
+check_package ./internal/executor "$executor_minimum"
 check_package ./internal/anomaly "$critical_minimum"

@@ -11,7 +11,7 @@ RUFF ?= ruff
 MYPY ?= mypy
 endif
 
-.PHONY: help architecture-check bootstrap build check containers coverage demo demo-gif format format-check fuzz-smoke lint lock-python mutation-check release-artifacts release-audit release-check test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation evaluate-learning
+.PHONY: help architecture-check bootstrap build check containers coverage demo demo-gif format format-check fuzz-smoke lint lock-python mutation-check portfolio-check release-artifacts release-audit release-check test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation evaluate-learning
 
 help:
 	@echo "Common targets:"
@@ -19,6 +19,7 @@ help:
 	@echo "  bootstrap  Create .venv and install development dependencies"
 	@echo "  check      Run tests, formatting checks, linters, and builds"
 	@echo "  release-check  Run every publication gate, including evidence audits"
+	@echo "  portfolio-check  Keep recruiter-facing claims synchronized with evidence"
 	@echo "  release-artifacts  Build portable archives, checksums, and test reports"
 	@echo "  format     Apply Go and Python formatting"
 	@echo "  coverage   Enforce the current Go coverage ratchet"
@@ -62,7 +63,10 @@ check: test format-check lint architecture-check build
 architecture-check:
 	$(PYTHON) tools/check_architecture.py
 
-release-check: check coverage release-audit
+release-check: check portfolio-check release-audit
+
+portfolio-check: coverage
+	$(PYTHON) tools/check_portfolio.py
 
 release-artifacts:
 	./tools/build_release.sh

@@ -1,13 +1,46 @@
-# Hiring guide
+# Candidate and project brief
 
-## 30-second recruiter description
+## Recruiter snapshot
 
-Bouncer is a Go-based control plane that treats AI-agent tool calls as untrusted
-proposals. It applies deterministic authorization before execution, runs actions
-through bounded executors, and records verifiable lifecycle evidence. The
-project includes cross-language policy testing, a credential-free live demo,
-honest synthetic and hosted-provider results, and an optional learned router
-that cannot override policy.
+| | |
+| --- | --- |
+| **Candidate** | Darsh Garg |
+| **Project** | Bouncer — personal AI-infrastructure and security research prototype |
+| **Role fit** | Backend, platform, distributed systems, AI infrastructure, and application security |
+| **Core stack** | Go, Python, HTTP, OpenTelemetry, Prometheus, Docker, Kubernetes, GitHub Actions |
+| **Fast proof** | `make demo` completes five control-boundary checks without credentials or network access |
+
+## 30-second description
+
+Bouncer is a Go control plane that treats AI-agent tool calls as untrusted
+proposals. It applies deterministic authorization before execution, verifies
+the resulting state transition, and records lifecycle-complete audit evidence.
+The project demonstrates systems design, security reasoning, cross-language
+testing, experimental discipline, and release engineering—not just model API
+integration.
+
+## Evidence at a glance
+
+| Evidence | Signal |
+| --- | --- |
+| **100,000 generated cases** matched between the Go policy and independent Python oracle | Cross-language contract design and differential testing |
+| **82.3% Linux / 83.0% macOS overall Go coverage**; Linux's `openat2` executor is **81.6%**, while the other critical packages exceed 90% | Failure-path and boundary-focused testing with platform-specific ratchets |
+| **5/5 credential-free demo checks** | A reviewer can verify the central idea immediately |
+| **3/3 hosted pilot tasks**, with rejected proposals not executed | Real-provider integration, honestly scoped as connectivity evidence |
+| A 3×3 ensemble used **3.35×** mean synthetic tokens without improving fixture results | Measurement changed the design; complexity was removed from the default |
+
+## What Darsh owned
+
+- Framed the authorization problem and selected the trust boundaries.
+- Designed the Go runtime, Python oracle/evaluation boundary, schemas, and
+  evidence model.
+- Chose the experiments and retained negative and failed results.
+- Defined the release, security, compatibility, and claim-promotion gates.
+- Used AI coding assistants transparently for drafting and review while
+  retaining responsibility for explaining, testing, changing, and defending
+  the resulting system.
+
+See [Project History & Authorship](PROJECT_HISTORY.md) for the full account.
 
 ## Two-minute technical explanation
 
@@ -47,25 +80,19 @@ support checks, and an explicit configuration change.
 
 ## Honest résumé bullets
 
-- Built a deterministic Go authorization and execution gateway for model-proposed
-  tool calls, with strict contracts, path/dependency/mutation policy, transition
-  verification, and lifecycle-complete hash-chained evidence.
-- Differentially tested the canonical Go policy against an independent Python
-  oracle across 100,000 generated cases and raised current Go coverage above 82%
-  with race, concurrency, crash-recovery, and malformed-artifact tests.
-- Designed controlled routing studies that showed a fixed 3×3 ensemble consumed
-  3.35× mean synthetic tokens without improving fixture completion, then removed
-  that complexity from the default architecture.
-- Integrated a shadow-gated learned-routing substrate with portable GLMs,
-  uncertainty/risk gates, Pareto holding, trajectory builders, and off-policy
-  evaluation while preserving deterministic policy authority.
-
-## Relevant roles
-
-- backend and distributed-systems engineering;
-- platform and infrastructure engineering;
-- AI infrastructure and agent-platform engineering; and
-- application security or security engineering.
+- Built a Go authorization and execution control plane for model-proposed tool
+  calls, including fail-closed policy, transition verification, durable
+  idempotency, and lifecycle-complete hash-chained evidence.
+- Differentially tested the Go policy against an independent Python oracle
+  across 100,000 generated cases; achieved 82.3% Linux / 83.0% macOS overall Go coverage,
+  above 90% in policy, routing, and anomaly boundaries, and 81.6% for the
+  Linux-only rooted executor package.
+- Measured a 3.35× mean synthetic-token overhead from a 3×3 proposal ensemble
+  without improved fixture results, then removed the unearned complexity from
+  the default architecture.
+- Implemented shadow-gated learned routing and anomaly scoring with portable
+  artifacts, uncertainty and validation gates, and no ability to override
+  deterministic authorization.
 
 ## Hardest decisions to defend
 

@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Go 1.23 or newer
+- Go 1.25 or newer
 - Python 3.11 or newer
 - Python packages from `.[dev]`
 - Optional OpenAI-compatible NVIDIA NIM endpoint
@@ -27,7 +27,7 @@ the lock in the lowest supported Python runtime with `make lock-python`.
 make check
 ```
 
-`make check` validates all frozen JSON fixtures, runs Go tests under the race detector, runs Python unit and integration tests, enforces Go and Python formatting, runs Go vet, Ruff, and strict mypy, and builds all five binaries. `make coverage` enforces the current ratchet; `make fuzz-smoke` runs bounded decoder and router fuzzing.
+`make check` validates all frozen JSON fixtures, runs Go tests under the race detector, runs Python unit and integration tests, enforces Go and Python formatting, runs Go vet, Ruff, and strict mypy, and builds all five binaries. `make coverage` enforces the current platform-aware ratchet: 80% overall, 90% for policy/router/anomaly, 90% for the macOS executor package, and 81% for the larger Linux package that includes the `openat2` implementation. `make fuzz-smoke` runs bounded decoder and router fuzzing.
 
 ## Build
 

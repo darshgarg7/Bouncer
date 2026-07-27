@@ -1,9 +1,9 @@
 # NVIDIA hosted-provider pilot
 
 **Pilot:** `nvidia-hosted-pilot-2026-07-27`
-**Generated:** 2026-07-27T19:03:30.720202+00:00
-**Source revision:** `76d2508b1497830522233a35b044385d84534729`
-**Source fingerprint:** `8b10126665a1a4dead73f91bab490ca63b02e2ecace54ec2b5551105c6fce65d`
+**Generated:** 2026-07-27T21:43:00.146077+00:00
+**Source revision:** `2d65d2461ff3cb976ccde16f72010fb8cfbdba89`
+**Source fingerprint:** `7ffe9a432af32207029877f3e76229d77e9ce0fe0f3fc051a653873207111ed7`
 **Model:** `nvidia/nemotron-3-ultra-550b-a55b`
 **Objective artifact:** `bootstrap-operation-priors-v1`
 
@@ -12,9 +12,9 @@
 ## Result
 
 - 3/3 authored virtual tasks passed;
-- 5 proposals were rejected before execution;
+- 8 proposals were rejected before execution;
 - 0 severe virtual mutations were observed;
-- 19 hosted model calls used 17,504 provider-reported tokens; and
+- 20 hosted model calls used 18,635 provider-reported tokens; and
 - all three lifecycle chains verify against the terminal hashes in `summary.json`.
 
 ### Per-task outcomes
