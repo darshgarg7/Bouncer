@@ -239,7 +239,7 @@ def render_report(document: dict[str, Any]) -> str:
             "",
             (
                 "Choose the lowest-token configuration whose pass rate is within the "
-                "preregistered non-inferiority margin and whose severe-run rate is no "
+                "pre-specified non-inferiority margin and whose severe-run rate is no "
                 "worse than the 3x5 reference."
             ),
             "",

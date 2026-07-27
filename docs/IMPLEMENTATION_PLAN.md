@@ -8,12 +8,13 @@ Turn Bouncer from a well-engineered synthetic prototype into a credible, indepen
 
 The project succeeds even if the original multi-proposer hypothesis fails. If one proposer plus deterministic policy matches the ensemble, Bouncer becomes a compact policy-and-execution control plane and the ensemble is removed.
 
-## Execution status — 2026-07-26
+## Execution status — 2026-07-27
 
 | Workstream | Status | Implemented evidence | Remaining gate |
 | --- | --- | --- | --- |
 | Credibility reset | Complete | README, claim register, threat model, protocol, ADRs | External artifact review |
 | Canonical policy | Complete | Go authority; 100,000-case Python parity | Independent rerun |
+| Objective trust | Baseline implemented | Raw/scored type boundary; strict artifact; zero-influence bootstrap; affine/Platt fitter | Measured dataset, calibration report, domain validation |
 | Explicit routing | Complete | Seven named strategies and exact behavior propensities | Real-task comparison |
 | Adaptive compute | Implemented, experimental | Frozen validity/spread triggers; controlled mechanism report | Real-provider non-inferiority and overhead gate |
 | Provider boundary | Implemented | OpenAI-compatible and exact recorded-replay adapters | Exact provider metadata and qualification |
@@ -29,10 +30,10 @@ The policy-held-constant smoke study activated the stop rule: one proposer + pol
 
 | Dimension | Current evidence | Current score | Principal gap |
 | --- | --- | ---: | --- |
-| Research validity | Preregistered synthetic comparison plus a policy-held-constant mechanism study and known-ground-truth OPE validation | 4/10 | No real-provider, external-benchmark, or independent replication evidence |
+| Research validity | Pre-specified synthetic comparison, a three-task hosted smoke pilot, a policy-held-constant mechanism study, and known-ground-truth OPE validation | 4/10 | No powered provider comparison, external benchmark, or independent replication evidence |
 | Benchmark quality | Ten deterministic fixtures, five seeds, injected virtual hazards | 2/10 | Tasks are handcrafted for the mechanism and do not measure general agent capability |
-| Feature quality | Typed actions, canonical policy, explicit strategies, exact propensities, adaptive compute, replayable loop | 7/10 | Objectives remain model-authored and uncalibrated; real-task routing value is unproven |
-| Code quality | Race tests, strict typing, schemas, fuzz targets, coverage ratchet, cross-language differential testing | 7/10 | Overall coverage is 64.4%; CLIs still need application-package refactoring and integration coverage |
+| Feature quality | Typed actions, canonical policy, trusted objective boundary, explicit strategies, exact propensities, adaptive compute, replayable loop | 7/10 | Bootstrap priors are not empirical calibration; real-task routing value is unproven |
+| Code quality | Race tests, strict typing, schemas, fuzz targets, 75.0% overall coverage, command integration tests, cross-language differential testing | 8/10 | The sandbox command entry point and deeper storage failure branches still need targeted coverage |
 | Security | Fail-closed policy, durable idempotency, verified transitions, Linux rooted broker, gVisor template | 5/10 | Adversarial Linux qualification, transactional multi-replica execution, and independent review remain open |
 | Operations | Hash-chained evidence, OTLP traces, Prometheus metrics, pinned CI, deployment template | 6/10 | Load/chaos evidence, recovery exercise, signed images, and enforced SLOs remain open |
 | Documentation | Thorough architecture, protocol, benchmark, and operations documents | 6/10 | README is too promotional and does not separate claims from hypotheses sharply enough |
@@ -334,6 +335,13 @@ All baselines receive the same model, prompt information, tool schemas, permissi
 - The headline claim is the narrowest claim supported by the worst relevant domain/model result.
 
 ## Workstream 5 — objective quality and decision intelligence
+
+**Current baseline:** Raw estimates and routing objectives are now separate Go
+types. The runtime loads a strict, hashed artifact with bounds, affine/Platt
+transforms, operation priors, and held-out-selected influence weights. The
+bootstrap sets every model weight to zero. Collecting independently measured
+observations, publishing calibration diagnostics, and promoting a fitted
+artifact remain open.
 
 **Duration:** 2 engineering weeks
 **Dependency:** real benchmark pilot

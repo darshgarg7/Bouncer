@@ -33,7 +33,8 @@ flowchart LR
     U["Task author or caller"] --> C["Bouncer control plane"]
     M["Untrusted model provider"] --> C
     C --> P["Deterministic policy boundary"]
-    P --> R["Deterministic routing boundary"]
+    P --> O["Trusted objective boundary"]
+    O --> R["Deterministic routing boundary"]
     R --> G["Authenticated execution gateway"]
     G --> W["Untrusted isolated workload"]
     W --> G
@@ -43,6 +44,7 @@ flowchart LR
     subgraph Host["Protected host and infrastructure"]
         C
         P
+        O
         R
         G
         E
@@ -75,7 +77,7 @@ Do not assume the model, executor workload, task author, or network is honest.
 | Malformed or trailing model output | bounded response, finish-reason gate, strict typed decoder, exactly one document | Implemented for the current proposal protocol |
 | Unauthorized operation or target | canonical deterministic policy evaluated before routing and redundantly at execution | Canonical Go policy implemented; external policy audit pending |
 | Dependency bypass | versioned DAG and fail-closed dependency evaluation | Implemented; 100,000-case differential parity gate passes |
-| Objective manipulation | treat estimates as untrusted, separate predicted from measured, risk ceiling, calibration | Not complete |
+| Objective manipulation | type-separate raw estimates, strict hashed calibration artifact, bounded inputs, operation priors, calibrated risk ceiling | Runtime boundary implemented; bootstrap uses zero model influence, empirical calibration data pending |
 | Duplicate side effect | durable atomic idempotency claim, cached response, and fail-closed indeterminate state | Implemented for the single reference service; distributed transactional store pending |
 | Forged executor transition | local deterministic transition verification and signed/attributable worker response | Virtual transition validation implemented; worker identity pending |
 | Evidence deletion or reordering | sequence number, previous-event hash, event hash, terminal completeness check | Sequence and hash verifier implemented; external immutable storage pending |
@@ -91,6 +93,7 @@ Do not assume the model, executor workload, task author, or network is honest.
 
 - Policy rejection is terminal for that candidate.
 - Routing receives only policy-passing candidates.
+- The router receives only separately scored objectives, never provider estimates directly.
 - Learned or statistical output cannot add a permission.
 - Execution input is cryptographically bound to action, state, and policy.
 - Caller state changes only after response verification.

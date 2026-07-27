@@ -7,6 +7,8 @@ Bouncer's action, task, manifest, and remote-execution protocol is `0.1.0`. The 
 - [`schemas/action.schema.json`](../schemas/action.schema.json)
 - [`schemas/beam.schema.json`](../schemas/beam.schema.json)
 - [`schemas/event.schema.json`](../schemas/event.schema.json)
+- [`schemas/objective-calibration.schema.json`](../schemas/objective-calibration.schema.json)
+- [`schemas/objective-observation.schema.json`](../schemas/objective-observation.schema.json)
 - [`schemas/run-manifest.schema.json`](../schemas/run-manifest.schema.json)
 - [`schemas/task.schema.json`](../schemas/task.schema.json)
 
@@ -49,6 +51,11 @@ action, and the execution boundary checks the policy again.
   }
 }
 ```
+
+`estimated_objectives` is untrusted provider-authored metadata. It is retained
+for audit but is not passed to the router. The control plane creates a separate
+`routing_objectives` value through the versioned calibration artifact described
+in the architecture document.
 
 ### Operation classes
 
@@ -165,7 +172,10 @@ The selected-candidate trace contains:
 - nondomination rank;
 - finite crowding-distance representation;
 - normalized objective values; and
-- the raw candidate and raw objective estimates.
+- the raw candidate and raw objective estimates;
+- bounded and transformed estimates plus the operation prior;
+- the final routing objectives; and
+- calibration ID, provenance, model-influence weights, and artifact SHA-256.
 
 `epsilon_pareto` explores only among hard-policy-passing candidates on the first Pareto front. With more than one eligible front member, the lexicographic best has probability `1-ε`, and each other member has probability `ε/(n-1)`. With one member the probability is one.
 

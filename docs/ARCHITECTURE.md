@@ -7,9 +7,10 @@ This document describes the implemented system. “Implemented” does not imply
 1. Model output is untrusted data and has no authorization authority.
 2. The canonical Go policy is deterministic and fail closed.
 3. Routing can choose only from candidates admitted by policy.
-4. An execution response is accepted only if it matches the selected action's deterministic transition contract.
-5. Every selection policy has explicit semantics and a logged behavior probability.
-6. Statistical analysis is offline and cannot add permissions.
+4. The router accepts trusted routing objectives, never provider estimates directly.
+5. An execution response is accepted only if it matches the selected action's deterministic transition contract.
+6. Every selection policy has explicit semantics and a logged behavior probability.
+7. Statistical analysis is offline and cannot add permissions.
 
 ## Runtime topology
 
@@ -28,7 +29,8 @@ flowchart LR
         D --> G["Canonical Go policy"]
         G -->|"reject"| F["Canonical feedback"]
         F --> C
-        G -->|"feasible"| R["Explicit router"]
+        G -->|"feasible"| K["Objective calibrator"]
+        K --> R["Explicit router"]
     end
 
     subgraph Execution
@@ -53,7 +55,8 @@ The default proposal budget is one proposer returning one action because it won 
 | Provider | Producing candidate bytes and provider telemetry | Authorization, objective truth, or execution |
 | Decoder | Contract shape, bounded size, local numeric validity | Semantic policy |
 | Go policy | Declared operation, path, dependency, protection, and mutation rules | Undeclared environmental facts |
-| Router | Reproducing the configured choice among admitted candidates | Calibrating model-authored objectives |
+| Objective calibrator | Bounding and transforming predictions under a hashed artifact | Claiming bootstrap priors are measured or allowing an action |
+| Router | Reproducing the configured choice among admitted, scored candidates | Reading raw provider estimates or authorizing an action |
 | Remote gateway | Protocol authentication and response binding | General operating-system containment |
 | Rooted backend | Narrow Linux filesystem mediation | Arbitrary commands, arbitrary network tools, or a formal isolation proof |
 | Task oracle | Scoring one fixture | General task correctness |
@@ -79,9 +82,23 @@ The default proposal budget is one proposer returning one action because it won 
 
 Violations are sorted and serialized canonically. The Python package implements the same contract as an independent differential reference. `make verify-policy-parity` runs 100,000 generated cross-language cases.
 
+## Objective-calibration boundary
+
+The action contract retains `estimated_objectives` exactly as the provider authored them. `internal/calibration` creates a separate `ScoredCandidate` for routing. Its artifact defines:
+
+- finite input caps for latency, cost, and risk;
+- non-negative affine transforms for continuous latency and cost;
+- Platt scaling over bounded risk log odds;
+- an operation-level prior with a required fallback; and
+- a per-objective model-influence weight in `[0, 1]`.
+
+The blend is `(1 - weight) × prior + weight × transformed estimate`. The checked-in bootstrap uses zero weight, so changing only a model's self-reported objectives cannot change its routing score. The promotion workflow requires nonzero weights to come from the offline fitter, which chooses the smallest weight that improves held-out squared error over the prior. Artifact ID, file digest, provenance, raw input, bounded input, transformed value, prior, and final routing objectives are logged.
+
+The bootstrap operation priors are conservative engineering values, not empirical measurements. The runtime fails at startup if the artifact is missing, malformed, contains unknown fields, lacks a fallback prior, or specifies invalid bounds/transforms.
+
 ## Routing plane
 
-All candidates first pass the risk ceiling. Available policies are:
+All candidates first pass the calibrated risk ceiling. Available policies are:
 
 | Strategy | Selection semantics | Behavior probability |
 | --- | --- | ---: |
@@ -93,7 +110,7 @@ All candidates first pass the risk ceiling. Available policies are:
 | `epsilon_pareto` | Lexicographic best with `1-ε`; otherwise uniform among other Pareto-front candidates | Exact selected-action propensity |
 | `legacy_crowding` | Nondomination rank, crowding, then ID | 1; historical replay only |
 
-Crowding distance remains ranking metadata; it is not the default utility. Adaptive expansion uses the number of valid candidates and normalized objective-space spread. It logs every trigger and extra request.
+Crowding distance remains ranking metadata; it is not the default utility. Adaptive expansion uses the number of valid candidates and calibrated objective-space spread. It logs every trigger and extra request.
 
 ## Execution plane
 
@@ -127,6 +144,7 @@ OpenTelemetry spans cover proposal, projection, routing, and execution. W3C trac
 - `finish_reason: length` is always truncation, even if partial content parses.
 - Unknown or malformed beams fail the proposal; no repair prompt runs implicitly.
 - A failed proposer fails its requested range.
+- Missing or invalid objective calibration fails the run before routing.
 - Policy or persistence errors fail closed.
 - No valid candidate causes canonical feedback and replanning, never fallback execution.
 - A mismatched sandbox response cannot update caller state.

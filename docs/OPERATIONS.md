@@ -94,11 +94,17 @@ For a self-hosted Nemotron 3 Ultra NIM, start the server with the `nemotron_v3` 
 
 ## Complete static run
 
+Every full run loads `configs/objective-calibration.bootstrap.json` by default.
+The bootstrap artifact bounds all three provider fields and assigns them zero
+model influence, so routing uses operation-level priors. Override it only with
+a reviewed artifact:
+
 ```bash
 bin/bouncer-run \
   -manifest configs/run-manifest.local.json \
   -task benchmarks/tasks/task-001.json \
   -project-root "$PWD" \
+  -objective-calibration configs/objective-calibration.bootstrap.json \
   -seed 42
 ```
 
@@ -116,6 +122,38 @@ bin/bouncer-run \
 ```
 
 Verify the completed chain with `bin/bouncer-verify-log -event-log benchmarks/results/task-001-events.jsonl`. The historical 3×5 report uses `configs/run-manifest.synthetic-v1.json`; it is not the runtime default.
+
+## Fit an objective artifact
+
+Fit artifacts offline from JSONL records that pair the original provider
+estimate with an independently measured outcome:
+
+```json
+{"operation_class":"filesystem.read","estimated_objectives":{"latency_ms":20,"cost_units":0.1,"safety_risk":0.2},"measured_objectives":{"latency_ms":35,"cost_units":0.14,"safety_risk":0}}
+```
+
+Latency should come from trusted execution spans, cost from a frozen provider
+price table and observed usage, and safety risk from a predefined binary event
+taxonomy. Do not feed a second model score into `measured_objectives`.
+
+```bash
+bouncer-fit-objectives \
+  --input benchmarks/results/objective-observations.jsonl \
+  --output configs/objective-calibration.pilot-v1.json \
+  --calibration-id pilot-v1
+
+python3 tools/validate_contracts.py \
+  --objective-calibration configs/objective-calibration.pilot-v1.json
+```
+
+The fitter uses a deterministic train/validation split. It fits affine scalers
+for latency and cost, a Platt scaler for risk, and operation priors on the
+training tranche. For each objective it then chooses the smallest blend weight
+that minimizes validation squared error. The output records the source file's
+SHA-256 and sample counts. Promote it only after reviewing data provenance,
+coverage by operation class, held-out error, and stability across task domains.
+The command exclusively creates its output file so an existing artifact cannot
+be overwritten accidentally.
 
 ## Provider connectivity gate
 
@@ -220,6 +258,7 @@ make containers
 | Total generation limit | run manifest | 1536 |
 | Proposal timeout | run manifest | 120 seconds |
 | Maximum task turns | run manifest | 8 |
+| Objective calibration | `-objective-calibration` | `configs/objective-calibration.bootstrap.json` |
 
 ## Troubleshooting
 

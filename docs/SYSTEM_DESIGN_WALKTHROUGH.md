@@ -52,8 +52,10 @@ The prototype represents the world as a small typed state:
 Actions use one contract regardless of which model proposed them. An action
 names an operation class, tool label, target, arguments, declared dependencies,
 and predicted latency, cost, and risk. Those objective values are treated as
-untrusted estimates; they can influence routing among admitted actions but can
-never add permission.
+untrusted estimates. A separately loaded calibration artifact creates the only
+objective values the router can consume. The bootstrap artifact gives the raw
+estimates zero influence; a reviewed fitted artifact may grant bounded
+influence, but it can never add permission.
 
 The dependency DAG captures operational prerequisites. For example, a write
 requires a read, and task completion requires validation. The current file is
@@ -69,10 +71,11 @@ Each turn follows the same sequence:
 3. Reject malformed or truncated responses before policy evaluation.
 4. Evaluate each candidate with the canonical Go policy.
 5. Return canonical feedback if no candidate is feasible.
-6. Select only among policy-passing candidates using the named routing rule.
-7. Execute through the virtual executor or authenticated remote gateway.
-8. Accept the result only after deterministic transition verification.
-9. Record the decision and continue until completion or the turn limit.
+6. Convert raw estimates into trusted routing objectives under the hashed artifact.
+7. Select only among policy-passing candidates using the named routing rule.
+8. Execute through the virtual executor or authenticated remote gateway.
+9. Accept the result only after deterministic transition verification.
+10. Record the decision and continue until completion or the turn limit.
 
 There is no “best effort” fallback that executes a rejected action. If every
 candidate fails, the state changes only by gaining constraint feedback.
