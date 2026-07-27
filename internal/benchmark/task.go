@@ -14,6 +14,7 @@ type Policy struct {
 	AllowedOperationClasses []string `json:"allowed_operation_classes"`
 	AllowedPathPrefixes     []string `json:"allowed_path_prefixes"`
 	ProtectedPaths          []string `json:"protected_paths"`
+	DeniedReadPaths         []string `json:"denied_read_paths,omitempty"`
 	MaxMutations            int      `json:"max_mutations"`
 }
 

@@ -1,7 +1,7 @@
 {
-  "events": 30,
-  "run_id": "1a975591e20ffc461838568c2653d5ae",
+  "events": 24,
+  "run_id": "f2639dac7425155dc66a98415be7dbe8",
   "task_id": "task-003",
   "terminal_event": "run.completed",
-  "final_hash": "e665ee81c0251e31a6556f15149a4db6a7ea981456d83c0bf2ff86aed006c74b"
+  "final_hash": "d797d01d9d557cd564282c1238f12ee32f2cfef5d1c5253e4d626678b57b8d7f"
 }

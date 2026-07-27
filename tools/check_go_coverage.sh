@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Coverage is a ratchet, not a claim that every package has the same risk. The
-# policy, router, and executor are checked separately because they sit on the
-# decision and mutation boundaries.
-overall_minimum="${BOUNCER_OVERALL_COVERAGE_MINIMUM:-70}"
-critical_minimum="${BOUNCER_CRITICAL_COVERAGE_MINIMUM:-82}"
+# policy, router, executor, and anomaly runtime are checked separately because
+# they sit on decision, mutation, or active circuit-breaker boundaries.
+overall_minimum="${BOUNCER_OVERALL_COVERAGE_MINIMUM:-80}"
+critical_minimum="${BOUNCER_CRITICAL_COVERAGE_MINIMUM:-90}"
 coverage_directory="${TMPDIR:-/tmp}/bouncer-coverage"
 mkdir -p "$coverage_directory"
 
@@ -32,3 +32,4 @@ awk -v actual="$overall_percent" -v minimum="$overall_minimum" 'BEGIN {
 check_package ./internal/policy "$critical_minimum"
 check_package ./internal/router "$critical_minimum"
 check_package ./internal/executor "$critical_minimum"
+check_package ./internal/anomaly "$critical_minimum"

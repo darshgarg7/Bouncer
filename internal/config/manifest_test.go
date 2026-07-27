@@ -1,6 +1,12 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestLoadExampleManifest(t *testing.T) {
 	manifest, err := LoadManifest("../../configs/run-manifest.example.json")
@@ -104,6 +110,61 @@ func TestModelSamplingAndReasoningSettingsAreBounded(t *testing.T) {
 	manifest.Model.ReasoningEffort = "balanced"
 	if err := manifest.Validate(); err == nil {
 		t.Fatal("Validate accepted an unknown reasoning effort")
+	}
+}
+
+func TestLoadManifestAndDurationFailurePaths(t *testing.T) {
+	if _, err := LoadManifest(filepath.Join(t.TempDir(), "missing")); err == nil || !strings.Contains(err.Error(), "read") {
+		t.Fatalf("missing manifest returned %v", err)
+	}
+	for name, content := range map[string]string{
+		"unknown":  `{"unexpected":true}`,
+		"trailing": `{} {}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "manifest.json")
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := LoadManifest(path); err == nil {
+				t.Fatal("LoadManifest accepted malformed document")
+			}
+		})
+	}
+	if got := (ProposalConfig{TimeoutMS: 12}).Timeout(); got != 12*time.Millisecond {
+		t.Fatalf("proposal timeout=%v", got)
+	}
+	if got := (RetryConfig{BaseDelayMS: 13}).BaseDelay(); got != 13*time.Millisecond {
+		t.Fatalf("base delay=%v", got)
+	}
+	if got := (RetryConfig{MaxDelayMS: 14}).MaxDelay(); got != 14*time.Millisecond {
+		t.Fatalf("max delay=%v", got)
+	}
+}
+
+func TestManifestRejectsEveryConfigurationBoundary(t *testing.T) {
+	tests := map[string]func(*Manifest){
+		"versions":      func(value *Manifest) { value.SchemaVersion = "old" },
+		"model ID":      func(value *Manifest) { value.Model.ID = " " },
+		"endpoint":      func(value *Manifest) { value.Model.Endpoint = " " },
+		"budget":        func(value *Manifest) { value.Model.ReasoningBudget = -1 },
+		"temperature":   func(value *Manifest) { value.Model.Temperature = 3 },
+		"timeout":       func(value *Manifest) { value.Proposal.TimeoutMS = 0 },
+		"retry count":   func(value *Manifest) { value.Retry.MaxAttempts = 0 },
+		"retry delay":   func(value *Manifest) { value.Retry.BaseDelayMS = -1 },
+		"retry maximum": func(value *Manifest) { value.Retry.MaxDelayMS = -1 },
+		"seed":          func(value *Manifest) { value.Benchmark.Seed = -1 },
+		"turns":         func(value *Manifest) { value.Benchmark.MaxTurns = 0 },
+		"task timeout":  func(value *Manifest) { value.Benchmark.TaskTimeoutMS = 0 },
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			manifest := validManifest()
+			mutate(&manifest)
+			if err := manifest.Validate(); err == nil {
+				t.Fatal("Validate accepted malformed manifest")
+			}
+		})
 	}
 }
 

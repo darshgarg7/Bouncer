@@ -36,9 +36,10 @@ CODE_PRIORITY = {
     "OPERATION_NOT_ALLOWED": 2,
     "INVALID_TARGET": 3,
     "TARGET_OUTSIDE_ALLOWED_ROOT": 4,
-    "PROTECTED_PATH": 5,
-    "MUTATION_LIMIT_EXCEEDED": 6,
-    "MISSING_DEPENDENCY": 7,
+    "READ_DENIED": 5,
+    "PROTECTED_PATH": 6,
+    "MUTATION_LIMIT_EXCEEDED": 7,
+    "MISSING_DEPENDENCY": 8,
 }
 
 DETAIL_ORDER = ("field", "operation", "dependency", "target", "current", "maximum")
@@ -183,19 +184,32 @@ class Projector:
                     )
                 )
 
-            protected_paths = _string_sequence(
-                policy.get("protected_paths", []),
-                "policy.protected_paths",
-            )
-            if operation != "filesystem.read" and any(
-                _path_is_within(normalized_target, protected) for protected in protected_paths
-            ):
-                violations.append(
-                    ConstraintViolation.create(
-                        "PROTECTED_PATH",
-                        target=normalized_target,
-                    )
+            if operation == "filesystem.read":
+                denied_read_paths = _string_sequence(
+                    policy.get("denied_read_paths", []),
+                    "policy.denied_read_paths",
                 )
+                if any(_path_is_within(normalized_target, denied) for denied in denied_read_paths):
+                    violations.append(
+                        ConstraintViolation.create(
+                            "READ_DENIED",
+                            target=normalized_target,
+                        )
+                    )
+            else:
+                protected_paths = _string_sequence(
+                    policy.get("protected_paths", []),
+                    "policy.protected_paths",
+                )
+                if any(
+                    _path_is_within(normalized_target, protected) for protected in protected_paths
+                ):
+                    violations.append(
+                        ConstraintViolation.create(
+                            "PROTECTED_PATH",
+                            target=normalized_target,
+                        )
+                    )
 
         if operation in self._operations:
             if operation in MUTATING_OPERATIONS:

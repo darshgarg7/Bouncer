@@ -65,6 +65,9 @@ func (r *Rooted) Execute(
 	if err := ctx.Err(); err != nil {
 		return Outcome{}, err
 	}
+	if err := validateRequestedPolicy(*state, policy, candidate); err != nil {
+		return Outcome{}, err
+	}
 	expectedState := cloneState(*state)
 	expectedOutcome, err := (Virtual{}).Execute(ctx, &expectedState, policy, candidate)
 	if err != nil {

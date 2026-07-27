@@ -7,6 +7,12 @@ Bouncer emits two complementary artifacts:
 
 The event log starts with `run.started` and ends with `run.completed` or `run.failed`. Files are created with exclusive-create semantics, so a new run cannot silently overwrite previous evidence. Event schema `0.2.0` adds a monotonic sequence and SHA-256 chain; verify it with `bouncer-verify-log` before analysis. The verifier also enforces a single run/task identity and rejects suffix-truncated logs. Preserve the returned final hash outside the log and pass it back with `-expected-final-hash` when an external anchor is available.
 
+An importable example dashboard is checked in at
+[`deploy/grafana/bouncer-sandbox-dashboard.json`](../deploy/grafana/bouncer-sandbox-dashboard.json).
+It uses only metrics the reference sandbox currently emits. Percentile latency
+must come from OpenTelemetry spans until the Prometheus endpoint exposes a
+histogram; the dashboard does not manufacture a p95 from the current summary.
+
 `bouncer-run` and `bouncer-sandbox` accept `-otlp-endpoint` and `-trace-sample-ratio`. Proposal, projection, routing, and execution spans propagate W3C trace context through provider and sandbox HTTP calls. Decision events include trace and span IDs, but prompt and state content are not added as span attributes. The sandbox exposes Prometheus text metrics at `/metrics` for requests, executions, idempotency replays, errors, and aggregate duration.
 
 ## Required dashboards
@@ -19,6 +25,7 @@ The event log starts with `run.started` and ends with `run.completed` or `run.fa
 | Token use | condition, task, model | Budget or baseline regression |
 | Constraint decisions | code, operation, task | New or rapidly increasing code |
 | Execution | backend, operation, outcome | Any unauthorized or unattributed mutation |
+| Static anomaly decisions | mode, artifact ID, alert, gate, scoring error | Any active gate or active scoring error; shadow-rate drift |
 | Task outcome | task class, policy version | Pass-rate non-inferiority breach |
 | Latency | proposal, projection, execution, end-to-end | Frozen p95 SLO breach |
 
@@ -31,6 +38,7 @@ Do not sample:
 - constraint violations;
 - selected actions;
 - execution state diffs;
+- anomaly alerts, gates, and scoring errors;
 - failed runs; or
 - human approval decisions.
 

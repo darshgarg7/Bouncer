@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -15,10 +16,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"bouncer/internal/action"
+	"bouncer/internal/anomaly"
 	"bouncer/internal/benchmark"
 	"bouncer/internal/calibration"
 	"bouncer/internal/executor"
 	"bouncer/internal/harness"
+	"bouncer/internal/learning"
+	"bouncer/internal/monitoring"
 	"bouncer/internal/nimclient"
 	"bouncer/internal/projector"
 	"bouncer/internal/router"
@@ -31,8 +35,78 @@ type Loop struct {
 	Executor         executor.Executor
 	TraceSink        TraceSink
 	RouterConfig     router.Config
+	LearningScorer   learning.Scorer
+	Learning         LearningConfig
+	AnomalyScorer    anomaly.Scorer
+	Anomaly          AnomalyConfig
+	Monitoring       monitoring.Config
 	AdaptiveProposal AdaptiveProposalConfig
 	MaxTurns         int
+}
+
+const (
+	LearningDisabled = "disabled"
+	LearningShadow   = "shadow"
+	LearningActive   = "active"
+	AnomalyDisabled  = "disabled"
+	AnomalyShadow    = "shadow"
+	AnomalyActive    = "active"
+)
+
+// LearningConfig controls promotion independently from the immutable model.
+type LearningConfig struct {
+	Mode   string               `json:"mode"`
+	Router router.LearnedConfig `json:"router"`
+}
+
+func (c LearningConfig) withDefaults() LearningConfig {
+	if c.Mode == "" {
+		c.Mode = LearningDisabled
+	}
+	if c.Router == (router.LearnedConfig{}) {
+		c.Router = router.DefaultLearnedConfig()
+	}
+	return c
+}
+
+func (c LearningConfig) validate(scorer learning.Scorer) error {
+	if c.Mode != LearningDisabled && c.Mode != LearningShadow && c.Mode != LearningActive {
+		return fmt.Errorf("learning mode must be disabled, shadow, or active")
+	}
+	if c.Mode != LearningDisabled && scorer == nil {
+		return fmt.Errorf("learning mode %s requires a scorer", c.Mode)
+	}
+	if err := c.Router.Validate(); err != nil {
+		return fmt.Errorf("learning router configuration: %w", err)
+	}
+	return nil
+}
+
+// AnomalyConfig controls an immutable post-execution anomaly circuit breaker.
+// Active mode can stop subsequent actions, but it never authorizes an action or
+// retroactively claims that the triggering action was blocked.
+type AnomalyConfig struct {
+	Mode string `json:"mode"`
+}
+
+func (c AnomalyConfig) withDefaults() AnomalyConfig {
+	if c.Mode == "" {
+		c.Mode = AnomalyDisabled
+	}
+	return c
+}
+
+func (c AnomalyConfig) validate(scorer anomaly.Scorer) error {
+	if c.Mode != AnomalyDisabled && c.Mode != AnomalyShadow && c.Mode != AnomalyActive {
+		return fmt.Errorf("anomaly mode must be disabled, shadow, or active")
+	}
+	if c.Mode != AnomalyDisabled && scorer == nil {
+		return fmt.Errorf("anomaly mode %s requires a scorer", c.Mode)
+	}
+	if c.Mode == AnomalyActive && !scorer.Metadata().ActiveEligible {
+		return fmt.Errorf("active anomaly mode requires an active-eligible artifact")
+	}
+	return nil
 }
 
 type AdaptiveProposalConfig struct {
@@ -70,6 +144,15 @@ type Result struct {
 	ExecutedActions      int                  `json:"executed_actions"`
 	SevereMutations      int                  `json:"severe_mutations"`
 	RoutingStrategy      string               `json:"routing_strategy"`
+	LearningMode         string               `json:"learning_mode"`
+	LearningArtifact     *learning.Metadata   `json:"learning_artifact,omitempty"`
+	MonitoringAlerts     int                  `json:"monitoring_alerts"`
+	AnomalyMode          string               `json:"anomaly_mode"`
+	AnomalyArtifact      *anomaly.Metadata    `json:"anomaly_artifact,omitempty"`
+	AnomalyAlerts        int                  `json:"anomaly_alerts"`
+	AnomalyGates         int                  `json:"anomaly_gates"`
+	AnomalyScoringErrors int                  `json:"anomaly_scoring_errors"`
+	ExecutionGated       bool                 `json:"execution_gated"`
 	ObjectiveCalibration calibration.Metadata `json:"objective_calibration"`
 	AdaptiveProposals    bool                 `json:"adaptive_proposals"`
 	ProposalExpansions   int                  `json:"proposal_expansions"`
@@ -107,6 +190,18 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 	if err := routerConfig.Validate(); err != nil {
 		return Result{}, fmt.Errorf("control loop router configuration: %w", err)
 	}
+	learningConfig := l.Learning.withDefaults()
+	if err := learningConfig.validate(l.LearningScorer); err != nil {
+		return Result{}, err
+	}
+	anomalyConfig := l.Anomaly.withDefaults()
+	if err := anomalyConfig.validate(l.AnomalyScorer); err != nil {
+		return Result{}, err
+	}
+	monitor, err := monitoring.New(l.Monitoring)
+	if err != nil {
+		return Result{}, fmt.Errorf("control loop monitoring configuration: %w", err)
+	}
 	adaptive, err := l.adaptiveConfig()
 	if err != nil {
 		return Result{}, err
@@ -123,11 +218,24 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 		Seed:                 seed,
 		OracleFailures:       []string{},
 		RoutingStrategy:      routerConfig.Strategy,
+		LearningMode:         learningConfig.Mode,
+		AnomalyMode:          anomalyConfig.Mode,
 		ObjectiveCalibration: l.Calibrator.Metadata(),
 		AdaptiveProposals:    adaptive.Enabled,
 		FinalState:           state,
 		Trace:                []TraceEvent{},
 	}
+	if l.LearningScorer != nil {
+		metadata := l.LearningScorer.Metadata()
+		result.LearningArtifact = &metadata
+	}
+	if l.AnomalyScorer != nil {
+		metadata := l.AnomalyScorer.Metadata()
+		result.AnomalyArtifact = &metadata
+	}
+	previousOperation := ""
+	recentRejections := 0
+	noProgressStreak := 0
 
 	for turn := 0; turn < l.MaxTurns && !state.TaskComplete; turn++ {
 		// A turn starts from a complete typed snapshot. Provider output cannot
@@ -161,6 +269,8 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 		result.Turns++
 		result.ModelCalls += len(proposals)
 		candidates := flattenProposals(proposals, &result)
+		turnCandidateCount := len(candidates)
+		rejectionsBeforeTurn := result.ConstraintRejections
 		if err := l.record(proposalContext, &result, TraceEvent{
 			EventType: "proposal.completed",
 			StepID:    turn,
@@ -199,6 +309,7 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 				result.ProposalExpansions++
 				result.ModelCalls += len(extra)
 				extraCandidates := flattenProposals(extra, &result)
+				turnCandidateCount += len(extraCandidates)
 				if err := l.record(ctx, &result, TraceEvent{
 					EventType: "proposal.expanded",
 					StepID:    turn,
@@ -238,73 +349,51 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 			// converted into a best-effort execution fallback.
 			sort.Strings(feedback)
 			state.ConstraintFeedback = feedback
+			recentRejections = result.ConstraintRejections - rejectionsBeforeTurn
+			noProgressStreak++
 			continue
 		}
-		turnRouterConfig := routerConfig
-		turnRouterConfig.RandomSeed = seed + int64(turn)
-		routingContext, routingSpan := otel.Tracer("bouncer/control").Start(
-			ctx,
-			"candidate.route",
-			trace.WithAttributes(attribute.String("bouncer.routing.strategy", turnRouterConfig.Strategy)),
-		)
-		selection, err := router.SelectWithConfig(routingBatch.Candidates, turnRouterConfig)
+		routingStage, err := l.routeStage(routingStageInput{
+			Context:           ctx,
+			Result:            &result,
+			Task:              task,
+			State:             state,
+			Turn:              turn,
+			Seed:              seed,
+			BaselineConfig:    routerConfig,
+			LearningConfig:    learningConfig,
+			Candidates:        routingBatch,
+			PreviousOperation: previousOperation,
+			RecentRejections:  recentRejections,
+			NoProgressStreak:  noProgressStreak,
+		})
 		if err != nil {
-			markSpanError(routingSpan, err)
-			routingSpan.End()
-			return Result{}, fmt.Errorf("turn %d route candidates: %w", turn, err)
-		}
-		if err := l.record(routingContext, &result, TraceEvent{
-			EventType: "candidate.selected",
-			StepID:    turn,
-			Payload: map[string]any{
-				"action_id":             selection.Selected.CandidateID,
-				"objective_source":      "trusted_calibration_artifact",
-				"objective_calibration": l.Calibrator.Metadata(),
-				"objective_records":     routingBatch.Records,
-				"routing_objectives":    selection.SelectedRoutingObjectives,
-				"strategy":              selection.Strategy,
-				"selection_probability": selection.SelectionProbability,
-				"selection_score":       selection.SelectionScore,
-				"risk_ceiling":          turnRouterConfig.RiskCeiling,
-				"epsilon":               turnRouterConfig.Epsilon,
-				"weights":               turnRouterConfig.Weights,
-				"ranked":                selection.Ranked,
-			},
-		}); err != nil {
-			markSpanError(routingSpan, err)
-			routingSpan.End()
 			return Result{}, err
 		}
-		routingSpan.End()
-		executionContext, executionSpan := otel.Tracer("bouncer/control").Start(
-			ctx,
-			"action.execute",
-			trace.WithAttributes(
-				attribute.String("bouncer.action.id", selection.Selected.CandidateID),
-				attribute.String("bouncer.operation", selection.Selected.OperationClass),
-			),
-		)
-		outcome, err := l.Executor.Execute(executionContext, &state, task.Policy, selection.Selected)
+		executionStage, err := l.executeStage(executionStageInput{
+			Context:               ctx,
+			Result:                &result,
+			Task:                  task,
+			State:                 &state,
+			Turn:                  turn,
+			Selection:             routingStage.Selection,
+			StateBeforeDigest:     routingStage.StateDigest,
+			RejectedCandidates:    result.ConstraintRejections - rejectionsBeforeTurn,
+			CandidateCount:        turnCandidateCount,
+			SelectedTransitionNLL: routingStage.SelectedTransitionNLL,
+			Monitor:               monitor,
+			AnomalyConfig:         anomalyConfig,
+			AnomalyScorer:         l.AnomalyScorer,
+		})
 		if err != nil {
-			markSpanError(executionSpan, err)
-			executionSpan.End()
-			return Result{}, fmt.Errorf("turn %d execute %s: %w", turn, selection.Selected.CandidateID, err)
-		}
-		result.ExecutedActions++
-		if err := l.record(executionContext, &result, TraceEvent{
-			EventType: "execution.completed",
-			StepID:    turn,
-			Payload: map[string]any{
-				"action_id": selection.Selected.CandidateID,
-				"operation": selection.Selected.OperationClass,
-				"outcome":   outcome,
-			},
-		}); err != nil {
-			markSpanError(executionSpan, err)
-			executionSpan.End()
 			return Result{}, err
 		}
-		executionSpan.End()
+		previousOperation = executionStage.Operation
+		recentRejections = executionStage.Rejections
+		noProgressStreak = executionStage.NoProgressStreak
+		if executionStage.Gated {
+			break
+		}
 	}
 
 	oracle := task.Evaluate(state)
@@ -313,6 +402,12 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 	result.OracleFailures = oracle.Failures
 	if oracle.Passed && !state.TaskComplete {
 		result.OracleFailures = append(result.OracleFailures, "task did not emit task.complete")
+	}
+	if result.ExecutionGated {
+		result.OracleFailures = append(
+			result.OracleFailures,
+			"execution stopped by active anomaly gate",
+		)
 	}
 	result.FinalState = state
 	result.DurationMS = time.Since(started).Milliseconds()
@@ -335,6 +430,121 @@ func proposalEvidence(proposals []nimclient.ProposalResult) []map[string]any {
 		})
 	}
 	return evidence
+}
+
+func calibratedObjectives(
+	candidates []action.ScoredCandidate,
+	candidateID string,
+) (action.Objectives, bool) {
+	for _, candidate := range candidates {
+		if candidate.Candidate.CandidateID == candidateID {
+			return candidate.RoutingObjectives, true
+		}
+	}
+	return action.Objectives{}, false
+}
+
+func stateSHA256(state benchmark.State) (string, error) {
+	encoded, err := json.Marshal(state)
+	if err != nil {
+		return "", fmt.Errorf("encode state for digest: %w", err)
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func stateEvidence(state benchmark.State, digest string) map[string]any {
+	return map[string]any{
+		"state_sha256":              digest,
+		"benchmark_step":            state.BenchmarkStep,
+		"mutation_count":            state.MutationCount,
+		"completed_operations":      append([]string(nil), state.CompletedOperations...),
+		"file_count":                len(state.Files),
+		"constraint_feedback_count": len(state.ConstraintFeedback),
+	}
+}
+
+func candidateEvidence(candidates []action.ScoredCandidate) []map[string]any {
+	evidence := make([]map[string]any, 0, len(candidates))
+	for _, candidate := range candidates {
+		evidence = append(evidence, map[string]any{
+			"candidate_id":       candidate.Candidate.CandidateID,
+			"operation_class":    candidate.Candidate.OperationClass,
+			"tool":               candidate.Candidate.Tool,
+			"target_category":    targetCategory(candidate.Candidate.Target),
+			"routing_objectives": candidate.RoutingObjectives,
+		})
+	}
+	return evidence
+}
+
+func rankedEvidence(candidates []router.RankedCandidate) []map[string]any {
+	evidence := make([]map[string]any, 0, len(candidates))
+	for _, candidate := range candidates {
+		evidence = append(evidence, map[string]any{
+			"candidate_id":          candidate.Candidate.CandidateID,
+			"routing_objectives":    candidate.RoutingObjectives,
+			"rank":                  candidate.Rank,
+			"crowding_distance":     candidate.Crowding,
+			"normalized_objectives": candidate.Normalized,
+		})
+	}
+	return evidence
+}
+
+func learningPredictionEvidence(predictions []learning.Prediction) []map[string]any {
+	evidence := make([]map[string]any, 0, len(predictions))
+	for _, prediction := range predictions {
+		evidence = append(evidence, map[string]any{
+			"candidate_id": prediction.Candidate.CandidateID,
+			"features":     prediction.Features,
+			"progress":     prediction.Progress,
+			"success":      prediction.Success,
+			"latency_ms":   prediction.LatencyMS,
+			"cost_units":   prediction.CostUnits,
+			"adverse_risk": prediction.AdverseRisk,
+		})
+	}
+	return evidence
+}
+
+func targetCategory(target string) string {
+	trimmed := strings.Trim(target, "/")
+	if trimmed == "" {
+		return "unknown"
+	}
+	category, _, _ := strings.Cut(trimmed, "/")
+	return category
+}
+
+func taskProgress(task benchmark.Task, state benchmark.State) float64 {
+	constraints := len(task.Oracle.RequiredFiles) + len(task.Oracle.AbsentPaths) +
+		len(task.Oracle.UnchangedPaths) + 1
+	if constraints <= 0 {
+		return 0
+	}
+	failures := len(task.Evaluate(state).Failures)
+	if !state.TaskComplete {
+		failures++
+	}
+	progress := float64(constraints-failures) / float64(constraints)
+	if progress < 0 {
+		return 0
+	}
+	if progress > 1 {
+		return 1
+	}
+	return progress
+}
+
+func predictionTransitionNLL(predictions []learning.Prediction, candidateID string) float64 {
+	for _, prediction := range predictions {
+		if prediction.Candidate.CandidateID != candidateID {
+			continue
+		}
+		return -prediction.Features["transition_log_probability"]
+	}
+	return 0
 }
 
 func (l Loop) adaptiveConfig() (AdaptiveProposalConfig, error) {

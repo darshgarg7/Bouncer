@@ -38,6 +38,7 @@ def valid_policy() -> dict[str, object]:
         ],
         "allowed_path_prefixes": ["workspace/service/"],
         "protected_paths": ["workspace/service/secrets.env"],
+        "denied_read_paths": ["workspace/service/private/"],
         "max_mutations": 1,
     }
 
@@ -122,6 +123,20 @@ class ProjectorTests(unittest.TestCase):
             valid_policy(),
         )
         self.assertTrue(result.allowed)
+
+    def test_explicit_read_deny_is_enforced(self) -> None:
+        result = self.projector.evaluate(
+            valid_action(
+                operation_class="filesystem.read",
+                tool="read_file",
+                target="workspace/service/private/token.txt",
+                declared_dependencies=[],
+            ),
+            {"completed_operations": []},
+            valid_policy(),
+        )
+        self.assertFalse(result.allowed)
+        self.assertEqual("READ_DENIED", result.violations[0].code)
 
     def test_unknown_operation_is_rejected(self) -> None:
         result = self.projector.evaluate(

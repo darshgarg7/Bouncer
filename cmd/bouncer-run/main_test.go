@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"bouncer/internal/action"
+	"bouncer/internal/anomaly"
 	"bouncer/internal/control"
 	"bouncer/internal/eventlog"
 )
@@ -79,6 +81,8 @@ func TestRunCompletesTaskThroughHTTPProvider(t *testing.T) {
 		ExecutorMode:         "virtual",
 		TraceSampleRatio:     0,
 		ObjectiveCalibration: filepath.Join(root, "configs/objective-calibration.bootstrap.json"),
+		AnomalyMode:          control.AnomalyShadow,
+		AnomalyArtifact:      filepath.Join(root, "configs/anomaly-artifact.bootstrap.json"),
 	})
 	if err != nil {
 		t.Fatalf("run returned error: %v", err)
@@ -97,7 +101,9 @@ func TestRunCompletesTaskThroughHTTPProvider(t *testing.T) {
 	if err := json.Unmarshal(data, &result); err != nil {
 		t.Fatal(err)
 	}
-	if !result.Passed || !result.TaskComplete || result.ExecutedActions != 4 {
+	if !result.Passed || !result.TaskComplete || result.ExecutedActions != 4 ||
+		result.AnomalyMode != control.AnomalyShadow || result.AnomalyArtifact == nil ||
+		result.ExecutionGated {
 		t.Fatalf("unexpected result: %+v", result)
 	}
 	input, err := os.Open(eventPath)
@@ -111,6 +117,161 @@ func TestRunCompletesTaskThroughHTTPProvider(t *testing.T) {
 	}
 	if verification.TerminalEvent != "run.completed" || verification.TaskID != "task-001" {
 		t.Fatalf("unexpected verification: %+v", verification)
+	}
+}
+
+func TestRunActiveAnomalyArtifactStopsAfterTriggeringExecution(t *testing.T) {
+	t.Parallel()
+	root := commandRepoRoot(t)
+	fixtureData, err := os.ReadFile(filepath.Join(root, "examples/anomaly-score-fixture.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Artifact anomaly.Artifact `json:"artifact"`
+	}
+	if err := json.Unmarshal(fixtureData, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	fixture.Artifact.ArtifactID = "command-active-gate-test"
+	fixture.Artifact.ActiveEligible = true
+	fixture.Artifact.Provenance.Validation = &anomaly.ValidationProvenance{
+		DatasetSHA256:     "3333333333333333333333333333333333333333333333333333333333333333",
+		Rows:              20,
+		NormalRows:        10,
+		AnomalyRows:       10,
+		TruePositiveRate:  1,
+		FalsePositiveRate: 0,
+	}
+	artifactData, err := json.MarshalIndent(fixture.Artifact, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	temporary := t.TempDir()
+	artifactPath := filepath.Join(temporary, "active-anomaly.json")
+	if err := os.WriteFile(artifactPath, append(artifactData, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	denied := commandCandidate("denied", "filesystem.write", "apply_patch", map[string]any{
+		"content": "must not execute\n",
+	}, nil)
+	denied.Target = "outside/config.yaml"
+	beams := [][]action.Candidate{
+		{
+			denied,
+			commandCandidate("read", "filesystem.read", "read_file", map[string]any{}, nil),
+		},
+		{commandCandidate("write", "filesystem.write", "apply_patch", map[string]any{
+			"content": "timeout: 60\nretries: 3\n",
+		}, []string{"filesystem.read"})},
+	}
+	var mutex sync.Mutex
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		mutex.Lock()
+		index := requestCount
+		requestCount++
+		mutex.Unlock()
+		if index >= len(beams) {
+			http.Error(writer, "too many requests", http.StatusInternalServerError)
+			return
+		}
+		beam, marshalErr := json.Marshal(action.Beam{Actions: beams[index]})
+		if marshalErr != nil {
+			t.Errorf("marshal beam: %v", marshalErr)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		if encodeErr := json.NewEncoder(writer).Encode(map[string]any{
+			"id":    "active-gate-request",
+			"model": "test-model",
+			"choices": []map[string]any{{
+				"message":       map[string]any{"content": string(beam)},
+				"finish_reason": "stop",
+			}},
+			"usage": map[string]any{
+				"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15,
+			},
+		}); encodeErr != nil {
+			t.Errorf("encode response: %v", encodeErr)
+		}
+	}))
+	defer server.Close()
+
+	resultPath := filepath.Join(temporary, "result.json")
+	eventPath := filepath.Join(temporary, "events.jsonl")
+	if err := run(runOptions{
+		ManifestPath:         filepath.Join(root, "configs/run-manifest.example.json"),
+		TaskPath:             filepath.Join(root, "benchmarks/tasks/task-001.json"),
+		Endpoint:             server.URL + "/v1",
+		ProjectRoot:          root,
+		OutputPath:           resultPath,
+		EventLogPath:         eventPath,
+		SeedOverride:         -1,
+		BeamOverride:         2,
+		PolicyEngine:         "go",
+		ExecutorMode:         "virtual",
+		TraceSampleRatio:     0,
+		ObjectiveCalibration: filepath.Join(root, "configs/objective-calibration.bootstrap.json"),
+		AnomalyMode:          control.AnomalyActive,
+		AnomalyArtifact:      artifactPath,
+	}); err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+	mutex.Lock()
+	gotRequestCount := requestCount
+	mutex.Unlock()
+	if gotRequestCount != 1 {
+		t.Fatalf("active gate allowed %d provider requests, want 1", gotRequestCount)
+	}
+	resultData, err := os.ReadFile(resultPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result control.Result
+	if err := json.Unmarshal(resultData, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Passed || result.TaskComplete || !result.ExecutionGated ||
+		result.ExecutedActions != 1 || result.ModelCalls != 1 || result.Turns != 1 ||
+		result.ConstraintRejections != 1 || result.AnomalyAlerts != 1 ||
+		result.AnomalyGates != 1 || result.AnomalyScoringErrors != 0 {
+		t.Fatalf("unexpected active gate result: %+v", result)
+	}
+
+	eventData, err := os.ReadFile(eventPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gateEvidence := false
+	terminalCounters := false
+	for _, line := range bytes.Split(bytes.TrimSpace(eventData), []byte{'\n'}) {
+		var event map[string]any
+		if err := json.Unmarshal(line, &event); err != nil {
+			t.Fatal(err)
+		}
+		payload, _ := event["payload"].(map[string]any)
+		switch event["event_type"] {
+		case "execution.completed":
+			monitoringEvidence, _ := payload["monitoring"].(map[string]any)
+			anomalyEvidence, _ := monitoringEvidence["anomaly"].(map[string]any)
+			gateEvidence = monitoringEvidence["subsequent_execution_gated"] == true &&
+				anomalyEvidence["alert"] == true
+		case "run.completed":
+			terminalCounters = payload["anomaly_alerts"] == float64(1) &&
+				payload["anomaly_gates"] == float64(1) && payload["execution_gated"] == true
+		}
+	}
+	if !gateEvidence || !terminalCounters {
+		t.Fatalf("missing active gate evidence: gate=%t terminal=%t", gateEvidence, terminalCounters)
+	}
+	verification, err := eventlog.Verify(bytes.NewReader(eventData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verification.TerminalEvent != "run.completed" {
+		t.Fatalf("unexpected terminal event: %+v", verification)
 	}
 }
 
@@ -135,6 +296,17 @@ func TestRunRejectsConfigurationErrors(t *testing.T) {
 		},
 		"routing": func(options *runOptions) {
 			options.RoutingStrategy = "unknown"
+		},
+		"anomaly mode": func(options *runOptions) {
+			options.AnomalyMode = "unknown"
+		},
+		"missing anomaly artifact": func(options *runOptions) {
+			options.AnomalyMode = control.AnomalyShadow
+			options.AnomalyArtifact = filepath.Join(t.TempDir(), "missing.json")
+		},
+		"shadow-only artifact in active mode": func(options *runOptions) {
+			options.AnomalyMode = control.AnomalyActive
+			options.AnomalyArtifact = filepath.Join(root, "configs/anomaly-artifact.bootstrap.json")
 		},
 	}
 	for name, mutate := range tests {

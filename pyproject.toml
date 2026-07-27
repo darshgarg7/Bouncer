@@ -9,20 +9,29 @@ description = "Deterministic constraint projection for Bouncer candidate actions
 requires-python = ">=3.11"
 license = {text = "MIT"}
 
-[project.scripts]
-bouncer-project = "constraint_projection.cli:main"
-bouncer-fit-objectives = "benchmarking.objective_calibration:main"
-
 [project.optional-dependencies]
 dev = [
   "jsonschema>=4.23",
   "langgraph>=1.2,<2",
   "mypy>=1.14",
+  "Pillow>=10.4",
   "ruff>=0.9",
+  "setuptools>=69",
+  "wheel>=0.45",
 ]
 
 [tool.setuptools]
-packages = ["benchmarking", "constraint_projection"]
+packages = ["benchmarking", "benchmarking.learning", "constraint_projection"]
+
+[project.scripts]
+bouncer-project = "constraint_projection.cli:main"
+bouncer-fit-objectives = "benchmarking.objective_calibration:main"
+bouncer-build-trajectories = "benchmarking.learning.observations:main"
+bouncer-train-router = "benchmarking.learning.outcomes:main"
+bouncer-fit-transitions = "benchmarking.learning.markov:main"
+bouncer-fit-fqe = "benchmarking.learning.fitted_q:main"
+bouncer-fit-anomaly = "benchmarking.learning.anomaly:main"
+bouncer-evaluate-learning = "benchmarking.learning.evaluate:main"
 
 [tool.ruff]
 target-version = "py311"

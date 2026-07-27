@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1.7
+
+FROM python:3.11-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+RUN groupadd --system bouncer && useradd --system --gid bouncer --home /app bouncer
+WORKDIR /app
+COPY --chown=bouncer:bouncer benchmarking/__init__.py benchmarking/mock_nim.py benchmarking/mock_nim_cli.py ./benchmarking/
+COPY --chown=bouncer:bouncer benchmarks/scenarios.json ./benchmarks/scenarios.json
+USER bouncer
+EXPOSE 8001
+HEALTHCHECK --interval=2s --timeout=2s --retries=15 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/v1/health/ready', timeout=1)"]
+ENTRYPOINT ["python", "-m", "benchmarking.mock_nim_cli"]
+CMD ["--host", "0.0.0.0", "--port", "8001"]

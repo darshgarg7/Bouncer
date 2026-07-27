@@ -7,6 +7,7 @@ set -euo pipefail
 repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 environment_path="${1:-$repository_root/.venv}"
 python_command="${PYTHON:-python3}"
+lock_file="$repository_root/requirements-dev.lock"
 
 if ! "$python_command" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
   echo "$python_command must be Python 3.11 or newer" >&2
@@ -20,8 +21,8 @@ if [[ -x "$environment_path/bin/python" ]] && \
 fi
 
 "$python_command" -m venv "$environment_path"
-"$environment_path/bin/python" -m pip install --upgrade pip
-"$environment_path/bin/python" -m pip install -e "$repository_root[dev]"
+"$environment_path/bin/python" -m pip install --require-hashes -r "$lock_file"
+"$environment_path/bin/python" -m pip install --no-deps --no-build-isolation -e "$repository_root"
 
 echo "Bouncer development environment is ready at $environment_path"
 echo "Run 'make check'; the Makefile will use this environment automatically."

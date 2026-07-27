@@ -25,11 +25,13 @@ flowchart LR
     P -->|"feasible actions"| R["Explicit router"]
     R --> E["Virtual or remote executor"]
     E --> V["Independent transition verification"]
-    V --> T
+    V --> A["Optional static anomaly score"]
+    A -->|"continue"| T
+    A -->|"active hit"| S["Stop subsequent actions"]
     D --> L[("Hash-chained event log")]
     P --> L
     R --> L
-    V --> L
+    A --> L
 ```
 
 The model receives the task, current state, and a read-only description of the
@@ -75,10 +77,19 @@ Each turn follows the same sequence:
 7. Select only among policy-passing candidates using the named routing rule.
 8. Execute through the virtual executor or authenticated remote gateway.
 9. Accept the result only after deterministic transition verification.
-10. Record the decision and continue until completion or the turn limit.
+10. Build a trusted monitoring window and, when configured, score the immutable
+    Isolation Forest artifact.
+11. Record the decision and continue until completion, the turn limit, or an
+    active anomaly gate.
 
 There is no “best effort” fallback that executes a rejected action. If every
 candidate fails, the state changes only by gaining constraint feedback.
+
+The anomaly gate is deliberately post-execution. Its progress, latency, and
+transition-surprise features do not exist until an admitted action has executed
+and the transition has been verified. A threshold crossing can therefore stop
+later actions, but cannot undo or claim prevention of the triggering action.
+The checked-in artifact is shadow-only pending labeled held-out qualification.
 
 ## Why transition verification matters
 

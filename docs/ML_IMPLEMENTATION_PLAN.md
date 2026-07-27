@@ -3,7 +3,31 @@
 This document outlines the architecture for extending Bouncer from a deterministic, static control plane into a constrained, learning-to-rank system. The statistical model operates entirely inside a finite-horizon, multi-objective Markov Decision Process (MDP).
 
 > [!IMPORTANT]
-> This is a future implementation plan, not a description of checked-in runtime behavior. The current evidence supports the deterministic single-proposer path; every learned component below remains behind an explicit promotion gate.
+> The infrastructure in this plan is now implemented behind `disabled`, `shadow`, and `active` promotion modes. The checked-in bootstrap artifact is restricted to shadow mode and is not evidence that learned routing improves real tasks. See [ML Routing Operations](ML_OPERATIONS.md) for the executable workflow and remaining promotion gates.
+
+## Current implementation status
+
+Implemented:
+
+- strict schemas for decisions, measured outcomes, trajectories, learning artifacts, and unlabeled/labeled anomaly windows;
+- deterministic Go feature extraction and portable generalized-linear inference;
+- independent conservative estimates for progress, success, latency, cost, and adverse risk;
+- uncertainty/risk pruning, five-objective Pareto holding, frontier crowding limits, and safety-first selection;
+- runtime `disabled`, `shadow`, and fail-closed `active` modes;
+- exact behavior-probability logging and trajectory construction;
+- trajectory-held-out supervised training, a smoothed Markov prior, and fixed-policy vector FQE;
+- deterministic monitoring rules, portable Isolation Forest inference, and
+  disabled/shadow/active post-execution circuit-breaker modes; and
+- offline safe epsilon-greedy, conservative LinUCB, and Linear Thompson Sampling challengers.
+
+Not promoted:
+
+- the bootstrap learning artifact is hand-authored and shadow-only;
+- realized cost is explicitly censored until the executor provides trusted billing data;
+- the checked-in anomaly artifact is shadow-only; active eligibility still
+  requires labeled held-out validation and operational qualification;
+- contextual bandits are not connected to live selection; and
+- active routing still requires held-out evaluation, OPE support, latency qualification, and a canary decision.
 
 The deterministic Go policy engine remains the sole authority. Machine learning models predict outcomes, maintain the Pareto frontier, and assist in selecting among already-safe actions. They never grant permission or override policy rejections.
 
@@ -67,13 +91,13 @@ Contextual bandits are deployed as the first approximation for immediate routing
 
 ### Step 1: Freeze the Learning Contract
 Before training any model, specify the schema definitions and reward bounds:
-*   [ ] Define the state, action, next-state, reward, terminal-state, and horizon contracts.
-*   [ ] Specify exactly which actions are eligible for ML ranking.
-*   [ ] Establish that policy rejection always precedes ML scoring.
-*   [ ] Define trusted measurements for latency, cost, progress, success, and adverse outcomes.
-*   [ ] Decide how missing, censored, and delayed outcomes are represented.
-*   [ ] Version the feature schema, reward definition, policy version, and learning artifact.
-*   [ ] Start with a finite horizon and $\gamma=1$; introduce discounting only if experiments justify it.
+*   [x] Define the state, action, next-state, reward, terminal-state, and horizon contracts.
+*   [x] Specify exactly which actions are eligible for ML ranking.
+*   [x] Establish that policy rejection always precedes ML scoring.
+*   [ ] Define trusted measurements for latency, cost, progress, success, and adverse outcomes. Latency, progress, success, and new adverse incidents are measured; realized execution cost remains censored until a genuinely metered backend can issue idempotency-bound receipts. Provider token spend is a separate run-level quantity.
+*   [x] Decide how missing, censored, and delayed outcomes are represented.
+*   [x] Version the feature schema, reward definition, policy version, and learning artifact.
+*   [x] Start with a finite horizon and $\gamma=1$; introduce discounting only if experiments justify it.
 
 *Exit Gate*: Every reward component can be computed directly from trusted executor or benchmark data without asking an LLM to judge itself.
 
@@ -81,17 +105,17 @@ Before training any model, specify the schema definitions and reward bounds:
 
 ### Step 2: Build the Observation Pipeline
 To enable off-policy learning, every routing decision must be reconstructable from logged telemetry:
-*   [ ] Log run, task, decision, and turn identifiers.
-*   [ ] Log state features before routing.
-*   [ ] Log the complete policy-admitted candidate set.
-*   [ ] Log candidate features and calibrated objectives.
-*   [ ] Log the selected candidate.
-*   [ ] Log the exact behavior probability or propensity.
-*   [ ] Log version digests of policy, feature, calibration, transition, and model artifacts.
-*   [ ] Log immediate measured outcomes (latency, cost, progress).
-*   [ ] Log delayed task-level outcomes (final success/failure).
-*   [ ] Log verified next-state references.
-*   [ ] Log explicit missingness and censoring markers.
+*   [x] Log run, task, decision, and turn identifiers.
+*   [x] Log state features before routing.
+*   [x] Log the complete policy-admitted candidate set.
+*   [x] Log candidate features and calibrated objectives.
+*   [x] Log the selected candidate.
+*   [x] Log the exact behavior probability or propensity.
+*   [x] Log version digests of policy, feature, calibration, transition, and model artifacts.
+*   [ ] Log immediate measured outcomes (latency, cost, progress). Execution cost is deliberately censored until a metered backend exists; a future frozen-price provider ledger must not be relabeled as action cost.
+*   [x] Log delayed task-level outcomes (final success/failure).
+*   [x] Log verified next-state references.
+*   [x] Log explicit missingness and censoring markers.
 
 *Exit Gate*: Benchmark trajectories can be reconstructed end-to-end, and every selected action can be joined to its measured outcome.
 
@@ -150,12 +174,12 @@ Every prediction must include an uncertainty estimate or confidence interval. Ev
 Train smoothed sequence transition models over successful and failed trajectories:
 $$P(a_t \mid a_{t-1}, \text{task domain}, \text{policy version})$$
 
-*   [ ] Add explicit `START` and `END` states.
-*   [ ] Begin with first-order transitions using Dirichlet/Laplace smoothing.
+*   [x] Add explicit `START` and `END` states.
+*   [x] Begin with first-order transitions using Dirichlet/Laplace smoothing.
 *   [ ] Add second-order transitions only if held-out likelihood improves.
 *   [ ] Separate successful, failed, and incident trajectories.
 *   [ ] Emit log probability, negative log-likelihood, unseen-transition indicators, and success/failure contrast.
-*   [ ] Clip transition contributions so rare transitions cannot dominate routing decisions.
+*   [x] Clip transition contributions so rare transitions cannot dominate routing decisions.
 
 *Exit Gate*: The Markov prior improves held-out sequence likelihood in an ablation study.
 
@@ -163,13 +187,13 @@ $$P(a_t \mid a_{t-1}, \text{task domain}, \text{policy version})$$
 
 ### Step 6: Construct Trajectory Datasets
 For each completed episode, assemble the trajectory logs:
-*   [ ] Ordered state-action-next-state transitions.
-*   [ ] Immediate vector rewards.
-*   [ ] Terminal success or failure.
-*   [ ] Reward-to-go for every objective.
-*   [ ] Behavior propensities.
-*   [ ] Policy and artifact versions.
-*   [ ] Truncation and censoring status.
+*   [x] Ordered state-action-next-state transitions.
+*   [x] Immediate vector rewards.
+*   [x] Terminal success or failure.
+*   [x] Reward-to-go for every objective.
+*   [x] Behavior propensities.
+*   [x] Policy and artifact versions.
+*   [x] Truncation and censoring status.
 
 Reject broken or partially joined chains rather than silently treating them as complete trajectories.
 
@@ -202,7 +226,7 @@ The routing pipeline enforces a strict execution sequence:
 ### Step 9: Multi-Layer Monitoring
 Implement two distinct layers of telemetry defense:
 1.  **Deterministic Rules**: Detect repeated policy rejections, no-progress loops, excessive retries, tool alternation, and hash-chain failures.
-2.  **Statistical Anomaly Model**: Train an Isolation Forest over rolling telemetry windows (event proportions, rejection rates, no-progress streaks, latency deltas). Run in shadow mode first.
+2.  **Statistical Anomaly Model**: Train an Isolation Forest over rolling telemetry windows (event proportions, rejection rates, no-progress streaks, latency deltas). The portable Go runtime now supports disabled, shadow, and active post-execution modes; the checked-in artifact remains shadow-only pending held-out qualification.
 
 Promotion path:
 $$\text{Offline evaluation} \longrightarrow \text{Shadow alerts} \longrightarrow \text{Alerts visible to operator} \longrightarrow \text{Abstention gate}$$
@@ -228,23 +252,23 @@ schemas/
   measured-action-outcome.schema.json
   completed-trajectory.schema.json
   learning-artifact.schema.json
+  anomaly-artifact.schema.json
+  anomaly-validation-window.schema.json
   anomaly-window.schema.json
 
 internal/
+  anomaly/
   learning/
+    doc.go
+    types.go
     features.go
     artifact.go
-    linear.go
-    uncertainty.go
     scorer.go
-    shadow.go
   router/
-    frontier.go
-    dominance.go
-    selection.go
+    router.go
+    learned.go
   monitoring/
     rules.go
-    anomaly.go
 
 benchmarking/
   learning/

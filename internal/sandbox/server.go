@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,11 +20,13 @@ import (
 )
 
 type Config struct {
-	Token        string
-	Backend      executor.Executor
-	MaxBodyBytes int64
-	Store        ResponseStore
-	Metrics      *Metrics
+	Token             string
+	Backend           executor.Executor
+	MaxBodyBytes      int64
+	RequestsPerSecond float64
+	Burst             int
+	Store             ResponseStore
+	Metrics           *Metrics
 }
 
 func NewHandler(config Config) (http.Handler, error) {
@@ -33,6 +36,12 @@ func NewHandler(config Config) (http.Handler, error) {
 	if config.MaxBodyBytes <= 0 {
 		config.MaxBodyBytes = 4 << 20
 	}
+	if config.RequestsPerSecond <= 0 {
+		config.RequestsPerSecond = 20
+	}
+	if config.Burst <= 0 {
+		config.Burst = 40
+	}
 	if config.Store == nil {
 		config.Store = NewMemoryStore()
 	}
@@ -40,6 +49,7 @@ func NewHandler(config Config) (http.Handler, error) {
 		config.Metrics = NewMetrics()
 	}
 	var executionMutex sync.Mutex
+	limiter := newTokenBucket(config.RequestsPerSecond, config.Burst)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		requestContext := otel.GetTextMapPropagator().Extract(
 			request.Context(),
@@ -83,6 +93,11 @@ func NewHandler(config Config) (http.Handler, error) {
 		defer finishMetrics()
 		if config.Token != "" && !validBearerToken(request.Header.Get("Authorization"), config.Token) {
 			writeError(writer, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !limiter.Allow(time.Now()) {
+			writer.Header().Set("Retry-After", "1")
+			writeError(writer, http.StatusTooManyRequests, "rate limit exceeded")
 			return
 		}
 		data, err := io.ReadAll(io.LimitReader(request.Body, config.MaxBodyBytes+1))
@@ -185,6 +200,42 @@ func NewHandler(config Config) (http.Handler, error) {
 		}
 		writeJSON(writer, http.StatusOK, executionResponse)
 	}), nil
+}
+
+type tokenBucket struct {
+	mutex  sync.Mutex
+	rate   float64
+	burst  float64
+	tokens float64
+	last   time.Time
+}
+
+func newTokenBucket(requestsPerSecond float64, burst int) *tokenBucket {
+	now := time.Now()
+	return &tokenBucket{
+		rate:   requestsPerSecond,
+		burst:  float64(burst),
+		tokens: float64(burst),
+		last:   now,
+	}
+}
+
+func (l *tokenBucket) Allow(now time.Time) bool {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	elapsed := now.Sub(l.last).Seconds()
+	if elapsed > 0 {
+		l.tokens += elapsed * l.rate
+		if l.tokens > l.burst {
+			l.tokens = l.burst
+		}
+		l.last = now
+	}
+	if l.tokens < 1 {
+		return false
+	}
+	l.tokens--
+	return true
 }
 
 func validBearerToken(header, token string) bool {

@@ -42,10 +42,7 @@ func (b *lockedBuffer) String() string {
 }
 
 func NewPersistentClient(config PythonClient) (*PersistentClient, error) {
-	python := config.Python
-	if python == "" {
-		python = "python3"
-	}
+	python := config.GetPythonCmd()
 	dagPath := config.DAGPath
 	if dagPath == "" {
 		dagPath = "configs/skill_dag.json"

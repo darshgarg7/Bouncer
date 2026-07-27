@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a bounded improvement or experiment
+title: "proposal: "
+labels: ["proposal"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete problem or missing evidence does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Trust-boundary impact
+      description: Can this broaden authorization, execution, or public claims?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance evidence
+      description: Which test or pre-registered measurement would qualify it?
+    validations:
+      required: true

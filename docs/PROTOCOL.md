@@ -5,6 +5,9 @@ Bouncer's action, task, manifest, and remote-execution protocol is `0.1.0`. The 
 ## Source schemas
 
 - [`schemas/action.schema.json`](../schemas/action.schema.json)
+- [`schemas/anomaly-artifact.schema.json`](../schemas/anomaly-artifact.schema.json)
+- [`schemas/anomaly-validation-window.schema.json`](../schemas/anomaly-validation-window.schema.json)
+- [`schemas/anomaly-window.schema.json`](../schemas/anomaly-window.schema.json)
 - [`schemas/beam.schema.json`](../schemas/beam.schema.json)
 - [`schemas/event.schema.json`](../schemas/event.schema.json)
 - [`schemas/objective-calibration.schema.json`](../schemas/objective-calibration.schema.json)
@@ -14,11 +17,40 @@ Bouncer's action, task, manifest, and remote-execution protocol is `0.1.0`. The 
 
 Run `make validate-contracts` after changing a schema or fixture.
 
+## Static anomaly decision
+
+An anomaly artifact fixes the six-feature order, tree ensemble, threshold,
+training and validation provenance, and active-eligibility bit. It is loaded
+strictly and hashed before proposals begin. `disabled` performs no scoring;
+`shadow` records a threshold crossing; `active` stops the run before any later
+action when `score >= threshold`.
+
+Training telemetry uses `anomaly-window.schema.json`. Labeled promotion data
+uses the stricter `anomaly-validation-window.schema.json`; the producer rejects
+duplicate run/task/turn identities and declared identity overlap across the two
+inputs.
+
+The decision is nested in the triggering `execution.completed` event together
+with `subsequent_execution_gated`. Because progress and latency are observed
+outcomes, the triggering action has already executed. Calling this a
+pre-execution detector or prompt-injection classifier is incorrect. A scoring
+failure is also attached to that completed transition. It is observational in
+`shadow` mode; in `active` mode it fails the run before another action.
+
+An active threshold crossing is a controlled abstention: the lifecycle ends in
+`run.completed` with `passed: false` and nonzero anomaly-gate counters. An
+active scoring failure is an implementation failure and ends in `run.failed`.
+
 ## Remote execution
 
 Remote execution uses `POST /v1/execute`. The request contains protocol version `0.1.0`, the complete typed state, task policy, selected candidate, and a SHA-256 idempotency key computed over those three inputs. The same key is sent in the `Idempotency-Key` header. The reference service atomically claims the key before execution, persists the first response, and returns it with `Idempotency-Replayed: true` on a duplicate, including after service restart. A claim without a completed response returns HTTP 409 and requires reconciliation; the backend is not invoked again automatically.
 
 The sandbox redundantly checks the requested operation, virtual path, protected paths, and mutation budget before dispatch. The response contains the key, observed outcome, and complete next state. Before accepting it, the control plane independently replays the selected action against a cloned state and verifies:
+
+Task policy separates `protected_paths`, which deny mutation while permitting a
+read, from optional `denied_read_paths`, which deny `filesystem.read` for an
+exact virtual path or subtree. Both rules use component-aware virtual-path
+containment; neither relies on string-prefix coincidence.
 
 - protocol and idempotency-key equality;
 - structurally exact state after the deterministic transition;
@@ -156,6 +188,7 @@ Canonical XML attributes are ordered as `action_id`, `code`, then stable detail 
 | `OPERATION_NOT_ALLOWED` | Task policy does not authorize the operation |
 | `INVALID_TARGET` | Target is absolute, contains traversal, or is not a portable virtual path |
 | `TARGET_OUTSIDE_ALLOWED_ROOT` | Target is outside every authorized prefix |
+| `READ_DENIED` | A read targets an explicitly denied path or subtree |
 | `PROTECTED_PATH` | A mutating action targets protected state |
 | `MUTATION_LIMIT_EXCEEDED` | The task's mutation quota is exhausted |
 | `MISSING_DEPENDENCY` | A DAG prerequisite is absent from completed operations |
@@ -172,12 +205,19 @@ The selected-candidate trace contains:
 - nondomination rank;
 - finite crowding-distance representation;
 - normalized objective values; and
-- the raw candidate and raw objective estimates;
+- candidate identity plus raw objective estimates, without copying arguments into learning records;
 - bounded and transformed estimates plus the operation prior;
 - the final routing objectives; and
 - calibration ID, provenance, model-influence weights, and artifact SHA-256.
 
 `epsilon_pareto` explores only among hard-policy-passing candidates on the first Pareto front. With more than one eligible front member, the lexicographic best has probability `1-ε`, and each other member has probability `ε/(n-1)`. With one member the probability is one.
+
+When learned routing is enabled, the same event also records the feature-schema
+version, privacy-bounded state evidence, the complete admitted candidate set,
+artifact identity, five independent predictions with uncertainty, the retained
+frontier, shadow disagreement, and any shadow-only gate error. `active` mode
+always reports propensity one until a separately qualified exploratory policy is
+connected to the runtime.
 
 ## Event integrity
 

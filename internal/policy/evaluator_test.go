@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -43,6 +44,7 @@ func TestEvaluatorMatchesPythonReferenceAcrossGeneratedCases(t *testing.T) {
 		},
 		AllowedPathPrefixes: []string{"workspace", "task"},
 		ProtectedPaths:      []string{"workspace/protected"},
+		DeniedReadPaths:     []string{"workspace/protected/secret.txt"},
 		MaxMutations:        1,
 	}
 	goResults, err := goEvaluator.Evaluate(context.Background(), candidates, state, taskPolicy)
@@ -70,6 +72,30 @@ func TestEvaluatorMatchesPythonReferenceAcrossGeneratedCases(t *testing.T) {
 				pythonResults[index],
 			)
 		}
+	}
+}
+
+func TestEvaluatorEnforcesExplicitReadDenyRules(t *testing.T) {
+	evaluator, err := policy.New(map[string][]string{"filesystem.read": {}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := evaluator.Evaluate(
+		context.Background(),
+		[]action.Candidate{candidate("read-secret", "filesystem.read", "workspace/secrets/token")},
+		benchmark.State{CompletedOperations: []string{}, Files: map[string]string{}},
+		benchmark.Policy{
+			AllowedOperationClasses: []string{"filesystem.read"},
+			AllowedPathPrefixes:     []string{"workspace"},
+			ProtectedPaths:          []string{},
+			DeniedReadPaths:         []string{"workspace/secrets"},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if results[0].Allowed || len(results[0].Violations) != 1 || results[0].Violations[0].Code != "READ_DENIED" {
+		t.Fatalf("read deny rule was not enforced: %+v", results[0])
 	}
 }
 
@@ -136,6 +162,88 @@ func TestEvaluatorFailsClosedOnCancellationAndEmptyBatch(t *testing.T) {
 		taskPolicy,
 	); err == nil {
 		t.Fatal("canceled evaluation succeeded")
+	}
+}
+
+func TestEvaluatorRejectsEveryMalformedCandidateField(t *testing.T) {
+	evaluator, err := policy.New(map[string][]string{"filesystem.read": {}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := candidate("candidate", "filesystem.read", "workspace/file")
+	tests := map[string]func(*action.Candidate){
+		"candidate ID":     func(value *action.Candidate) { value.CandidateID = " bad" },
+		"operation":        func(value *action.Candidate) { value.OperationClass = " " },
+		"tool":             func(value *action.Candidate) { value.Tool = " " },
+		"target":           func(value *action.Candidate) { value.Target = " " },
+		"arguments":        func(value *action.Candidate) { value.Arguments = nil },
+		"nil deps":         func(value *action.Candidate) { value.DeclaredDependencies = nil },
+		"empty dep":        func(value *action.Candidate) { value.DeclaredDependencies = []string{""} },
+		"long dep":         func(value *action.Candidate) { value.DeclaredDependencies = []string{strings.Repeat("x", 129)} },
+		"duplicate dep":    func(value *action.Candidate) { value.DeclaredDependencies = []string{"read", "read"} },
+		"negative latency": func(value *action.Candidate) { value.EstimatedObjectives.LatencyMS = -1 },
+		"negative cost":    func(value *action.Candidate) { value.EstimatedObjectives.CostUnits = -1 },
+		"large risk":       func(value *action.Candidate) { value.EstimatedObjectives.SafetyRisk = 2 },
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			value := base
+			mutate(&value)
+			results, err := evaluator.Evaluate(
+				context.Background(),
+				[]action.Candidate{value},
+				benchmark.State{CompletedOperations: []string{}},
+				benchmark.Policy{
+					AllowedOperationClasses: []string{"filesystem.read"},
+					AllowedPathPrefixes:     []string{"workspace"},
+					ProtectedPaths:          []string{},
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if results[0].Allowed || results[0].Violations[0].Code != "INVALID_ACTION" {
+				t.Fatalf("malformed candidate was not rejected: %+v", results[0])
+			}
+		})
+	}
+}
+
+func TestPolicyLoadAndCanonicalEscapingFailurePaths(t *testing.T) {
+	if _, err := policy.Load(filepath.Join(t.TempDir(), "missing")); err == nil || !strings.Contains(err.Error(), "read") {
+		t.Fatalf("missing policy returned %v", err)
+	}
+	for name, content := range map[string]string{
+		"unknown":  `{"schema_version":"0.1.0","operations":{},"unknown":true}`,
+		"trailing": `{"schema_version":"0.1.0","operations":{}} {}`,
+		"version":  `{"schema_version":"old","operations":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "dag.json")
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := policy.Load(path); err == nil {
+				t.Fatal("Load accepted malformed policy")
+			}
+		})
+	}
+	evaluator, err := policy.New(map[string][]string{"filesystem.read": {}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := evaluator.Evaluate(
+		context.Background(),
+		[]action.Candidate{candidate("escape", "filesystem.read", `other/a'b"`)},
+		benchmark.State{CompletedOperations: []string{}},
+		benchmark.Policy{
+			AllowedOperationClasses: []string{"filesystem.read"},
+			AllowedPathPrefixes:     []string{"workspace"},
+			ProtectedPaths:          []string{},
+		},
+	)
+	if err != nil || !strings.Contains(results[0].Projection, "&quot;") {
+		t.Fatalf("projection did not escape canonical attribute: %+v error=%v", results, err)
 	}
 }
 
