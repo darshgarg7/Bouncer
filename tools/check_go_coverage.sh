@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-overall_minimum="${BOUNCER_OVERALL_COVERAGE_MINIMUM:-60}"
-critical_minimum="${BOUNCER_CRITICAL_COVERAGE_MINIMUM:-80}"
+# Coverage is a ratchet, not a claim that every package has the same risk. The
+# policy, router, and executor are checked separately because they sit on the
+# decision and mutation boundaries.
+overall_minimum="${BOUNCER_OVERALL_COVERAGE_MINIMUM:-70}"
+critical_minimum="${BOUNCER_CRITICAL_COVERAGE_MINIMUM:-82}"
 coverage_directory="${TMPDIR:-/tmp}/bouncer-coverage"
 mkdir -p "$coverage_directory"
 

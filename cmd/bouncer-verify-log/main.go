@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"os"
 
 	"bouncer/internal/eventlog"
@@ -14,24 +15,34 @@ func main() {
 	path := flag.String("event-log", "", "path to a Bouncer JSONL event log")
 	expectedFinalHash := flag.String("expected-final-hash", "", "optional externally stored terminal SHA-256 hash")
 	flag.Parse()
-	if *path == "" {
-		log.Fatal("-event-log is required")
+	if err := run(*path, *expectedFinalHash, os.Stdout); err != nil {
+		fmt.Fprintf(os.Stderr, "bouncer verify log failed: %v\n", err)
+		os.Exit(1)
 	}
-	input, err := os.Open(*path)
+}
+
+func run(path, expectedFinalHash string, output io.Writer) error {
+	if path == "" {
+		return errors.New("-event-log is required")
+	}
+	input, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("open event log: %v", err)
+		return fmt.Errorf("open event log: %w", err)
 	}
 	defer input.Close()
 	verification, err := eventlog.Verify(input)
 	if err != nil {
-		log.Fatalf("verify event log: %v", err)
+		return fmt.Errorf("verify event log: %w", err)
 	}
-	if *expectedFinalHash != "" && verification.FinalHash != *expectedFinalHash {
-		log.Fatalf("verify event log: final hash does not match expected external anchor")
+	if expectedFinalHash != "" && verification.FinalHash != expectedFinalHash {
+		return errors.New("verify event log: final hash does not match expected external anchor")
 	}
 	encoded, err := json.MarshalIndent(verification, "", "  ")
 	if err != nil {
-		log.Fatalf("encode verification: %v", err)
+		return fmt.Errorf("encode verification: %w", err)
 	}
-	fmt.Println(string(encoded))
+	if _, err := fmt.Fprintln(output, string(encoded)); err != nil {
+		return fmt.Errorf("write verification: %w", err)
+	}
+	return nil
 }

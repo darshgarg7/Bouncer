@@ -148,6 +148,53 @@ func TestVerifyRejectsReorderedChain(t *testing.T) {
 	}
 }
 
+func TestVerifyRejectsMalformedEvidenceLines(t *testing.T) {
+	var output bytes.Buffer
+	writer := NewWriter(&output)
+	for _, eventType := range []string{"run.started", "run.completed"} {
+		if err := writer.Append(Event{
+			EventType: eventType,
+			RunID:     "run",
+			TaskID:    "task",
+			Payload:   map[string]any{},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	firstLine := strings.Split(strings.TrimSpace(output.String()), "\n")[0]
+	tests := map[string]string{
+		"invalid JSON":     "{\n",
+		"unknown field":    strings.Replace(firstLine, "{", `{"unknown":true,`, 1) + "\n",
+		"trailing content": firstLine + " {}\n",
+	}
+	for name, document := range tests {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Verify(strings.NewReader(document)); err == nil {
+				t.Fatal("Verify returned nil error")
+			}
+		})
+	}
+}
+
+func TestVerifyRejectsDuplicateEventIDs(t *testing.T) {
+	var output bytes.Buffer
+	writer := NewWriter(&output)
+	for _, eventType := range []string{"run.started", "run.completed"} {
+		if err := writer.Append(Event{
+			EventID:   "duplicate",
+			EventType: eventType,
+			RunID:     "run",
+			TaskID:    "task",
+			Payload:   map[string]any{},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Verify(bytes.NewReader(output.Bytes())); err == nil || !strings.Contains(err.Error(), "duplicate event_id") {
+		t.Fatalf("Verify returned %v", err)
+	}
+}
+
 func TestWriterRejectsUnknownEventType(t *testing.T) {
 	var output bytes.Buffer
 	err := NewWriter(&output).Append(Event{

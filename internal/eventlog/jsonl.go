@@ -173,6 +173,10 @@ func Verify(input io.Reader) (Verification, error) {
 		if err := decoder.Decode(&event); err != nil {
 			return Verification{}, fmt.Errorf("event line %d: decode: %w", count, err)
 		}
+		var trailing any
+		if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+			return Verification{}, fmt.Errorf("event line %d: decode: invalid trailing content", count)
+		}
 		if err := event.Validate(); err != nil {
 			return Verification{}, fmt.Errorf("event line %d: %w", count, err)
 		}

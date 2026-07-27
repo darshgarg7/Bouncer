@@ -26,9 +26,6 @@ func Setup(ctx context.Context, config Config) (func(context.Context) error, err
 	if strings.TrimSpace(config.ServiceName) == "" {
 		return nil, errors.New("telemetry service name is required")
 	}
-	if config.SampleRatio == 0 {
-		config.SampleRatio = 1
-	}
 	if config.SampleRatio < 0 || config.SampleRatio > 1 {
 		return nil, errors.New("telemetry sample ratio must be between 0 and 1")
 	}

@@ -23,3 +23,17 @@ func TestSetupNoopAndValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupAcceptsZeroSampleRatio(t *testing.T) {
+	shutdown, err := Setup(context.Background(), Config{
+		ServiceName:  "test",
+		OTLPEndpoint: "http://127.0.0.1:4318",
+		SampleRatio:  0,
+	})
+	if err != nil {
+		t.Fatalf("Setup rejected an explicit zero sample ratio: %v", err)
+	}
+	if err := shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
