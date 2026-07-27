@@ -1,4 +1,19 @@
-.PHONY: build check containers coverage format-check fuzz-smoke lint test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation
+VENV ?= .venv
+
+ifneq ($(wildcard $(VENV)/bin/python),)
+PYTHON ?= $(VENV)/bin/python
+RUFF ?= $(VENV)/bin/ruff
+MYPY ?= $(VENV)/bin/mypy
+else
+PYTHON ?= python3
+RUFF ?= ruff
+MYPY ?= mypy
+endif
+
+.PHONY: bootstrap build check containers coverage format-check fuzz-smoke lint test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation
+
+bootstrap:
+	./tools/bootstrap.sh "$(VENV)"
 
 build:
 	mkdir -p bin
@@ -25,39 +40,39 @@ fuzz-smoke:
 
 format-check:
 	test -z "$$(gofmt -l cmd internal)"
-	ruff format --check .
+	$(RUFF) format --check .
 
 lint:
 	go vet ./...
-	ruff check .
-	mypy constraint_projection benchmarking
+	$(RUFF) check .
+	$(MYPY) constraint_projection benchmarking
 
 test-go:
 	go test -race ./...
 
 test-python:
-	python3 -m unittest discover -s tests -v
+	$(PYTHON) -m unittest discover -s tests -v
 
 validate-contracts:
-	python3 tools/validate_contracts.py
+	$(PYTHON) tools/validate_contracts.py
 
 verify-policy-parity:
 	BOUNCER_POLICY_PARITY_CASES=100000 go test -run TestEvaluatorMatchesPythonReferenceAcrossGeneratedCases ./internal/policy
 
 project-example:
-	python3 -m constraint_projection --input examples/projection-input.json --format json
+	$(PYTHON) -m constraint_projection --input examples/projection-input.json --format json
 
 evaluate-synthetic:
-	python3 -m benchmarking.evaluate
+	$(PYTHON) -m benchmarking.evaluate
 
 evaluate-ablation:
-	python3 -m benchmarking.ablate
+	$(PYTHON) -m benchmarking.ablate
 
 evaluate-projector:
-	python3 -m benchmarking.projector_ablate
+	$(PYTHON) -m benchmarking.projector_ablate
 
 evaluate-mechanisms:
-	python3 -m benchmarking.mechanism_evaluate
+	$(PYTHON) -m benchmarking.mechanism_evaluate
 
 evaluate-ope-simulation:
-	python3 -m benchmarking.ope_simulation --output benchmarks/results/ope-simulation.json
+	$(PYTHON) -m benchmarking.ope_simulation --output benchmarks/results/ope-simulation.json

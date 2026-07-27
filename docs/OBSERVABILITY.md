@@ -5,7 +5,7 @@ Bouncer emits two complementary artifacts:
 - the final result JSON contains aggregate metrics, final state, oracle failures, and the complete in-memory trace;
 - `-event-log` writes each trace event durably as JSONL while the run is active.
 
-The event log starts with `run.started` and ends with `run.completed` or `run.failed`. Files are created with exclusive-create semantics, so a new run cannot silently overwrite previous evidence. Event schema `0.2.0` adds a monotonic sequence and SHA-256 chain; verify it with `bouncer-verify-log` before analysis.
+The event log starts with `run.started` and ends with `run.completed` or `run.failed`. Files are created with exclusive-create semantics, so a new run cannot silently overwrite previous evidence. Event schema `0.2.0` adds a monotonic sequence and SHA-256 chain; verify it with `bouncer-verify-log` before analysis. The verifier also enforces a single run/task identity and rejects suffix-truncated logs. Preserve the returned final hash outside the log and pass it back with `-expected-final-hash` when an external anchor is available.
 
 `bouncer-run` and `bouncer-sandbox` accept `-otlp-endpoint` and `-trace-sample-ratio`. Proposal, projection, routing, and execution spans propagate W3C trace context through provider and sandbox HTTP calls. Decision events include trace and span IDs, but prompt and state content are not added as span attributes. The sandbox exposes Prometheus text metrics at `/metrics` for requests, executions, idempotency replays, errors, and aggregate duration.
 

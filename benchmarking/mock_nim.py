@@ -23,7 +23,8 @@ class RunningMockNIM:
 
     @property
     def endpoint(self) -> str:
-        host, port = self.server.server_address
+        address = self.server.server_address
+        host, port = address[0], address[1]
         if isinstance(host, bytes):
             host = host.decode("ascii")
         return f"http://{host}:{port}/v1"

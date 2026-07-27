@@ -3,11 +3,11 @@
 ## Development setup
 
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install -e '.[dev]'
-make test
+make bootstrap
+make check
 ```
+
+The Makefile automatically uses `.venv` after bootstrapping; activation is optional.
 
 ## Required checks
 

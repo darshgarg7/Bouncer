@@ -10,10 +10,12 @@
 Create an isolated Python environment if the dependencies are not already available:
 
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install -e '.[dev]'
+make bootstrap
 ```
+
+The Makefile automatically uses `.venv` after bootstrapping. To use a different
+location, run `make bootstrap VENV=/absolute/path` and pass the same `VENV`
+value to later Make commands.
 
 ## Quality gates
 
@@ -76,6 +78,12 @@ bin/bouncer-run \
   -event-log benchmarks/results/nvidia-pilot-events.jsonl \
   -output benchmarks/results/nvidia-pilot-result.json
 ```
+
+To reproduce the three-task published smoke pilot with the virtual executor,
+run `tools/run_nvidia_pilot.sh`. It creates a new timestamped directory under
+`benchmarks/results/`, runs tasks 001–003 sequentially, and verifies every event
+chain. Pass an unused output directory as its first argument to override the
+default.
 
 `NVIDIA_API_KEY` and the older `NIM_API_KEY` name are both accepted, with
 `NIM_API_KEY` taking precedence when both are present. The hosted manifest uses

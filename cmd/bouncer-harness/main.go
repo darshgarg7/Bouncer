@@ -38,7 +38,7 @@ func main() {
 	}
 }
 
-func run(manifestPath, taskPath, outputPath string) error {
+func run(manifestPath, taskPath, outputPath string) (runErr error) {
 	manifest, err := config.LoadManifest(manifestPath)
 	if err != nil {
 		return err
@@ -63,6 +63,37 @@ func run(manifestPath, taskPath, outputPath string) error {
 	if err != nil {
 		return err
 	}
+	if err := logger.Append(eventlog.Event{
+		EventType: "run.started",
+		RunID:     runID,
+		TaskID:    task.TaskID,
+		Seed:      manifest.Benchmark.Seed,
+		Payload: map[string]any{
+			"model":            manifest.Model.ID,
+			"proposer_count":   manifest.Proposal.ProposerCount,
+			"beam_width":       manifest.Proposal.BeamWidth,
+			"proposal_timeout": manifest.Proposal.TimeoutMS,
+		},
+	}); err != nil {
+		return err
+	}
+	defer func() {
+		eventType := "run.completed"
+		payload := map[string]any{}
+		if runErr != nil {
+			eventType = "run.failed"
+			payload["error"] = runErr.Error()
+		}
+		if err := logger.Append(eventlog.Event{
+			EventType: eventType,
+			RunID:     runID,
+			TaskID:    task.TaskID,
+			Seed:      manifest.Benchmark.Seed,
+			Payload:   payload,
+		}); err != nil && runErr == nil {
+			runErr = err
+		}
+	}()
 
 	client, err := nimclient.New(nimclient.Config{
 		BaseURL:         manifest.Model.Endpoint,

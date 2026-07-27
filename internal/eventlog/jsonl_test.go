@@ -60,12 +60,76 @@ func TestVerifyAcceptsIntactChainAndRejectsTampering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify returned error: %v", err)
 	}
-	if verification.Events != 3 || verification.FinalHash == GenesisHash {
+	if verification.Events != 3 || verification.FinalHash == GenesisHash ||
+		verification.TerminalEvent != "run.completed" || verification.RunID != "run" {
 		t.Fatalf("unexpected verification: %+v", verification)
 	}
 	tampered := strings.Replace(output.String(), "proposal.completed", "proposal.requested", 1)
 	if _, err := Verify(strings.NewReader(tampered)); err == nil || !strings.Contains(err.Error(), "hash mismatch") {
 		t.Fatalf("tampered verification returned %v", err)
+	}
+}
+
+func TestVerifyRejectsTruncatedChainWithoutTerminalEvent(t *testing.T) {
+	var output bytes.Buffer
+	writer := NewWriter(&output)
+	for _, eventType := range []string{"run.started", "proposal.completed", "run.completed"} {
+		if err := writer.Append(Event{EventType: eventType, RunID: "run", TaskID: "task", Payload: map[string]any{}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	truncated := strings.Join(lines[:len(lines)-1], "\n") + "\n"
+	if _, err := Verify(strings.NewReader(truncated)); err == nil || !strings.Contains(err.Error(), "missing terminal") {
+		t.Fatalf("truncated verification returned %v", err)
+	}
+}
+
+func TestVerifyRejectsInvalidLifecycleAndMixedIdentity(t *testing.T) {
+	tests := []struct {
+		name   string
+		events []Event
+		want   string
+	}{
+		{
+			name: "missing start",
+			events: []Event{
+				{EventType: "proposal.completed", RunID: "run", TaskID: "task", Payload: map[string]any{}},
+				{EventType: "run.completed", RunID: "run", TaskID: "task", Payload: map[string]any{}},
+			},
+			want: "expected run.started",
+		},
+		{
+			name: "mixed identity",
+			events: []Event{
+				{EventType: "run.started", RunID: "run", TaskID: "task", Payload: map[string]any{}},
+				{EventType: "run.completed", RunID: "other", TaskID: "task", Payload: map[string]any{}},
+			},
+			want: "inconsistent run or task identity",
+		},
+		{
+			name: "event after terminal",
+			events: []Event{
+				{EventType: "run.started", RunID: "run", TaskID: "task", Payload: map[string]any{}},
+				{EventType: "run.completed", RunID: "run", TaskID: "task", Payload: map[string]any{}},
+				{EventType: "proposal.completed", RunID: "run", TaskID: "task", Payload: map[string]any{}},
+			},
+			want: "event follows terminal",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var output bytes.Buffer
+			writer := NewWriter(&output)
+			for _, event := range test.events {
+				if err := writer.Append(event); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := Verify(bytes.NewReader(output.Bytes())); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Verify returned %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 
@@ -79,7 +143,7 @@ func TestVerifyRejectsReorderedChain(t *testing.T) {
 	}
 	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
 	reordered := lines[1] + "\n" + lines[0] + "\n"
-	if _, err := Verify(strings.NewReader(reordered)); err == nil || !strings.Contains(err.Error(), "broken previous_hash") {
+	if _, err := Verify(strings.NewReader(reordered)); err == nil || !strings.Contains(err.Error(), "expected run.started") {
 		t.Fatalf("reordered verification returned %v", err)
 	}
 }

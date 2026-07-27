@@ -171,7 +171,7 @@ The selected-candidate trace contains:
 
 ## Event integrity
 
-Event schema `0.2.0` requires `sequence`, `previous_hash`, and `hash`. Sequence starts at one and increases by one. The first event links to a 64-zero genesis value; every later event links to the preceding SHA-256 hash over canonical event content. `bouncer-verify-log` rejects invalid schema, missing or reordered events, broken links, and modified content.
+Event schema `0.2.0` requires `sequence`, `previous_hash`, and `hash`. Sequence starts at one and increases by one. The first event links to a 64-zero genesis value; every later event links to the preceding SHA-256 hash over canonical event content. `bouncer-verify-log` requires `run.started`, a consistent run/task identity, and a final `run.completed` or `run.failed`; it rejects suffix truncation, invalid schema, missing or reordered interior events, broken links, and modified content. An optional `-expected-final-hash` compares the chain head with an externally stored anchor.
 
 ## Versioning
 

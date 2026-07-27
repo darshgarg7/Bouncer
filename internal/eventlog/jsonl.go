@@ -145,17 +145,26 @@ func (e Event) Validate() error {
 }
 
 type Verification struct {
-	Events    int    `json:"events"`
-	FinalHash string `json:"final_hash"`
+	Events        int    `json:"events"`
+	RunID         string `json:"run_id"`
+	TaskID        string `json:"task_id"`
+	TerminalEvent string `json:"terminal_event"`
+	FinalHash     string `json:"final_hash"`
 }
 
-// Verify checks every event's schema, canonical content hash, and link to the
-// preceding record. Any missing, reordered, modified, or inserted record fails.
+// Verify checks lifecycle semantics, run identity, event IDs, canonical content
+// hashes, and links. A completed log must start with run.started and end with one
+// terminal run.completed or run.failed event. External storage of FinalHash is
+// still required to detect an attacker who can rewrite the entire chain.
 func Verify(input io.Reader) (Verification, error) {
 	scanner := bufio.NewScanner(input)
 	scanner.Buffer(make([]byte, 64*1024), 16<<20)
 	previous := GenesisHash
 	count := 0
+	runID := ""
+	taskID := ""
+	terminalEvent := ""
+	eventIDs := map[string]struct{}{}
 	for scanner.Scan() {
 		count++
 		var event Event
@@ -166,6 +175,27 @@ func Verify(input io.Reader) (Verification, error) {
 		}
 		if err := event.Validate(); err != nil {
 			return Verification{}, fmt.Errorf("event line %d: %w", count, err)
+		}
+		if _, duplicate := eventIDs[event.EventID]; duplicate {
+			return Verification{}, fmt.Errorf("event line %d: duplicate event_id", count)
+		}
+		eventIDs[event.EventID] = struct{}{}
+		if count == 1 {
+			if event.EventType != "run.started" {
+				return Verification{}, errors.New("event line 1: expected run.started")
+			}
+			runID = event.RunID
+			taskID = event.TaskID
+		} else {
+			if terminalEvent != "" {
+				return Verification{}, fmt.Errorf("event line %d: event follows terminal %s", count, terminalEvent)
+			}
+			if event.EventType == "run.started" {
+				return Verification{}, fmt.Errorf("event line %d: duplicate run.started", count)
+			}
+			if event.RunID != runID || event.TaskID != taskID {
+				return Verification{}, fmt.Errorf("event line %d: inconsistent run or task identity", count)
+			}
 		}
 		if event.PreviousHash != previous {
 			return Verification{}, fmt.Errorf("event line %d: broken previous_hash link", count)
@@ -180,6 +210,9 @@ func Verify(input io.Reader) (Verification, error) {
 		if event.Hash != expected {
 			return Verification{}, fmt.Errorf("event line %d: content hash mismatch", count)
 		}
+		if event.EventType == "run.completed" || event.EventType == "run.failed" {
+			terminalEvent = event.EventType
+		}
 		previous = event.Hash
 	}
 	if err := scanner.Err(); err != nil {
@@ -188,7 +221,16 @@ func Verify(input io.Reader) (Verification, error) {
 	if count == 0 {
 		return Verification{}, errors.New("event log is empty")
 	}
-	return Verification{Events: count, FinalHash: previous}, nil
+	if terminalEvent == "" {
+		return Verification{}, errors.New("event log is incomplete: missing terminal run.completed or run.failed")
+	}
+	return Verification{
+		Events:        count,
+		RunID:         runID,
+		TaskID:        taskID,
+		TerminalEvent: terminalEvent,
+		FinalHash:     previous,
+	}, nil
 }
 
 func computeHash(event Event) (string, error) {

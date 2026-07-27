@@ -60,6 +60,10 @@ The current policy-held-constant study is more revealing:
 
 The project follows its stop rule: **single proposer + deterministic policy is now the default.** Adaptive and ensemble modes remain experimental until real tasks show value. Uniform random-safe routing is a scientific control, not a recommended execution policy. See the generated [mechanism report](benchmarks/reports/mechanism.md) and [claim register](docs/CLAIMS.md).
 
+For a narrative tour of the control loop, state machine, and transition
+verification boundary, read the
+[system-design walkthrough](docs/SYSTEM_DESIGN_WALKTHROUGH.md).
+
 ## The proposed solution
 
 ```mermaid
@@ -136,10 +140,20 @@ If real benchmarks show that the ensemble adds no value, Bouncer still succeeds 
 Requirements: Go 1.23+, Python 3.11+, and the development dependencies in `pyproject.toml`.
 
 ```bash
-python3 -m pip install -e '.[dev]'
+make bootstrap
 make check
 make coverage
 make build
+```
+
+`make bootstrap` creates `.venv` and installs the editable development package.
+Subsequent Make targets automatically use that environment even when it is not
+activated. The equivalent manual setup is:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -e '.[dev]'
 ```
 
 For a credentialed NVIDIA-hosted pilot, use the frozen
@@ -215,6 +229,7 @@ The [research protocol](docs/RESEARCH_PROTOCOL.md), [threat model](docs/THREAT_M
 
 - [Claims and evidence](docs/CLAIMS.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [System-design walkthrough](docs/SYSTEM_DESIGN_WALKTHROUGH.md)
 - [Threat model](docs/THREAT_MODEL.md)
 - [Research protocol](docs/RESEARCH_PROTOCOL.md)
 - [Benchmarking](docs/BENCHMARKING.md)
