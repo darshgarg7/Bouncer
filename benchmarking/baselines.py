@@ -1,3 +1,5 @@
+"""LangGraph baselines used for policy and proposal comparisons."""
+
 from __future__ import annotations
 
 import time
@@ -15,6 +17,8 @@ Condition = Literal["langgraph", "structured"]
 
 
 class BaselineState(TypedDict):
+    """Mutable state carried between nodes in the baseline graph."""
+
     condition: Condition
     model: ModelConfig
     task: dict[str, Any]
@@ -29,6 +33,8 @@ class BaselineState(TypedDict):
 
 
 def build_graph(projector: Projector) -> Any:
+    """Build a propose-then-execute graph with post-hoc policy scoring."""
+
     def propose_node(state: BaselineState) -> dict[str, Any]:
         beam = state["condition"] == "structured"
         response = propose(
@@ -123,6 +129,7 @@ def run_baseline(
     max_turns: int = 8,
     model: ModelConfig | None = None,
 ) -> dict[str, Any]:
+    """Run one task through the selected LangGraph baseline condition."""
     task = load_task(task_path)
     projector = Projector(load_dag(dag_path))
     graph = build_graph(projector)

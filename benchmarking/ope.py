@@ -18,6 +18,8 @@ from typing import Any
 
 @dataclass(frozen=True)
 class Observation:
+    """One contextual-bandit observation with behavior and target propensities."""
+
     reward: float
     behavior_probability: float
     target_probability: float
@@ -28,6 +30,8 @@ class Observation:
 
 @dataclass(frozen=True)
 class Interval:
+    """A point estimate and its bootstrap confidence interval."""
+
     estimate: float
     lower: float
     upper: float
@@ -35,6 +39,8 @@ class Interval:
 
 @dataclass(frozen=True)
 class Diagnostics:
+    """Overlap and estimator-stability diagnostics used by admission gates."""
+
     observations: int
     effective_sample_size: float
     effective_sample_fraction: float
@@ -45,6 +51,7 @@ class Diagnostics:
 
 
 def parse_observation(value: object, line: int) -> Observation:
+    """Validate one decoded JSONL value and return a typed observation."""
     if not isinstance(value, dict):
         raise ValueError(f"line {line}: observation must be an object")
     expected = {
@@ -81,6 +88,7 @@ def parse_observation(value: object, line: int) -> Observation:
 
 
 def read_jsonl(path: Path) -> list[Observation]:
+    """Read a non-empty collection of observations from a JSONL file."""
     observations: list[Observation] = []
     with path.open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
@@ -96,6 +104,7 @@ def point_estimates(
     observations: Iterable[Observation],
     clip: float,
 ) -> dict[str, float]:
+    """Compute IPS, normalized IPS, clipped IPS, and doubly robust estimates."""
     rows = list(observations)
     if not rows:
         raise ValueError("offline evaluation requires at least one observation")
@@ -135,6 +144,7 @@ def evaluate(
     maximum_weight: float = 20,
     maximum_estimator_range: float = 0.1,
 ) -> dict[str, Any]:
+    """Estimate policy value and fail admission when diagnostics are unstable."""
     if bootstrap_samples < 100:
         raise ValueError("bootstrap_samples must be at least 100")
     if not 0 < confidence < 1:
@@ -202,6 +212,7 @@ def evaluate(
 
 
 def percentile(sorted_values: list[float], probability: float) -> float:
+    """Interpolate a percentile from values that are already sorted."""
     if len(sorted_values) == 1:
         return sorted_values[0]
     position = probability * (len(sorted_values) - 1)
@@ -212,6 +223,7 @@ def percentile(sorted_values: list[float], probability: float) -> float:
 
 
 def write_exclusive(path: Path, document: object) -> None:
+    """Write a JSON result without replacing an existing evidence artifact."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("x", encoding="utf-8") as handle:
         json.dump(document, handle, indent=2, sort_keys=True, allow_nan=False)
@@ -219,6 +231,7 @@ def write_exclusive(path: Path, document: object) -> None:
 
 
 def main() -> None:
+    """Run offline policy evaluation from the command line."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True, help="JSONL observations")
     parser.add_argument("--output", type=Path, required=True, help="new result JSON")

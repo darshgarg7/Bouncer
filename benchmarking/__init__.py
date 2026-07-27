@@ -1,1 +1,1 @@
-"""Reproducible local benchmark tooling for Bouncer."""
+"""Reproducible benchmark runners and analysis helpers for Bouncer."""

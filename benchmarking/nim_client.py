@@ -1,3 +1,10 @@
+"""Small standard-library client used by the Python benchmark baselines.
+
+The production-style Go path has its own provider adapter. Keeping this client
+separate makes the baselines easy to inspect and avoids coupling their behavior
+to the implementation under test.
+"""
+
 from __future__ import annotations
 
 import json
@@ -28,6 +35,8 @@ BEAM_SYSTEM_PROMPT = (
 
 @dataclass(frozen=True)
 class ModelResponse:
+    """Normalized actions and provider-reported token usage for one response."""
+
     actions: list[dict[str, Any]]
     prompt_tokens: int
     completion_tokens: int
@@ -38,6 +47,8 @@ class ModelResponse:
 
 @dataclass(frozen=True)
 class ModelConfig:
+    """Generation and transport settings shared by Python baseline calls."""
+
     endpoint: str
     model_id: str = "mock-nemotron"
     api_key: str = ""
@@ -50,6 +61,7 @@ class ModelConfig:
     timeout_seconds: float = 120
 
     def validate(self) -> None:
+        """Reject settings that would make requests ambiguous or unbounded."""
         if not self.endpoint.strip() or not self.model_id.strip():
             raise ValueError("model endpoint and id are required")
         if self.reasoning_budget < 0 or self.max_tokens <= self.reasoning_budget:
@@ -74,6 +86,7 @@ def propose(
     seed: int,
     beam: bool,
 ) -> ModelResponse:
+    """Request one action or a five-action beam from a compatible provider."""
     model.validate()
     payload = {
         "model": model.model_id,

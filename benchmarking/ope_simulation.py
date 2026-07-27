@@ -11,6 +11,7 @@ from .ope import Observation, evaluate, write_exclusive
 
 
 def simulate(sample_size: int, seed: int, epsilon: float = 0.2) -> list[Observation]:
+    """Sample a two-action environment whose target-policy value is 0.8."""
     if sample_size < 1 or not 0 < epsilon < 1:
         raise ValueError("sample_size must be positive and epsilon must be in (0,1)")
     randomizer = random.Random(seed)
@@ -36,6 +37,7 @@ def simulate(sample_size: int, seed: int, epsilon: float = 0.2) -> list[Observat
 
 
 def main() -> None:
+    """Run the known-ground-truth simulation and write its report."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--sample-size", type=int, default=10_000)

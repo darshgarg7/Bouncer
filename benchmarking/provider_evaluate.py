@@ -1,3 +1,10 @@
+"""Resumable benchmark runner for a real OpenAI-compatible provider.
+
+Every task/seed/condition result is written separately with exclusive creation.
+Interrupted evaluations can resume only when their configuration fingerprint
+matches, preventing accidental mixtures of incompatible runs.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -25,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run or resume the provider matrix and finalize it when complete."""
     parser = argparse.ArgumentParser(
         description="Run the resumable real-provider Bouncer benchmark"
     )
@@ -48,6 +56,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     arguments = parser.parse_args(argv)
 
+    # Resolve and fingerprint every input before the first provider call. A
+    # resumed run must use exactly the same experiment definition.
     analysis_path = resolve_path(arguments.analysis_manifest)
     run_manifest_path = resolve_path(arguments.run_manifest)
     analysis = load_json(analysis_path)
@@ -99,6 +109,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     model.validate()
 
+    # Each record is independently durable, so an interrupted matrix resumes
+    # at the first missing task/seed/condition tuple.
     expected = [
         (condition, task_path, int(seed))
         for seed in analysis["seeds"]
@@ -170,6 +182,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
+    # Aggregate only after the full frozen matrix exists. Partial runs remain
+    # useful for diagnosis but never produce a headline report.
     records = [compact_record(record) for record in full_records]
     summaries = {
         condition: summarize([record for record in records if record["condition"] == condition])
@@ -216,6 +230,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 class RunStore:
+    """Manage immutable per-run records for a resumable provider evaluation."""
+
     def __init__(self, root: Path) -> None:
         self.root = root
         self.records_dir = root / "records"
@@ -225,6 +241,7 @@ class RunStore:
         self.report_path = root / "report.md"
 
     def initialize(self, metadata: dict[str, Any], *, resume: bool) -> None:
+        """Create a run directory or validate an existing one for resume."""
         if self.root.exists():
             if not resume:
                 raise FileExistsError(
@@ -241,9 +258,11 @@ class RunStore:
         write_json_exclusive(self.metadata_path, metadata)
 
     def record_path(self, condition: str, task_id: str, seed: int) -> Path:
+        """Return the stable path for one condition, task, and seed."""
         return self.records_dir / f"{condition}--{task_id}--seed-{seed}.json"
 
     def load_record(self, condition: str, task_id: str, seed: int) -> dict[str, Any] | None:
+        """Load one record and verify that its identity matches its filename."""
         path = self.record_path(condition, task_id, seed)
         if not path.exists():
             return None
@@ -263,6 +282,7 @@ class RunStore:
         seed: int,
         record: dict[str, Any],
     ) -> None:
+        """Persist a new record after checking its task and condition identity."""
         if (
             record.get("condition") != condition
             or record.get("task_id") != task_id
@@ -272,6 +292,7 @@ class RunStore:
         write_json_exclusive(self.record_path(condition, task_id, seed), record)
 
     def append_failure(self, condition: str, task_id: str, seed: int, error: Exception) -> None:
+        """Append enough context to diagnose and resume a failed run."""
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "condition": condition,
@@ -284,12 +305,15 @@ class RunStore:
             handle.write(json.dumps(entry, sort_keys=True) + "\n")
 
     def load_all_records(self) -> list[dict[str, Any]]:
+        """Load all completed records in stable filename order."""
         return [load_json(path) for path in sorted(self.records_dir.glob("*.json"))]
 
     def record_count(self) -> int:
+        """Count completed per-run artifacts."""
         return sum(1 for _ in self.records_dir.glob("*.json"))
 
     def finalize(self, document: dict[str, Any], report: str) -> None:
+        """Write final artifacts once the full matrix is complete."""
         if self.results_path.exists() or self.report_path.exists():
             if not self.results_path.exists() or not self.report_path.exists():
                 raise FileExistsError("evaluation has only one final artifact; refusing overwrite")
@@ -312,6 +336,7 @@ def build_metadata(
     task_paths: list[Path],
     endpoint: str,
 ) -> dict[str, Any]:
+    """Build the immutable inputs and fingerprint used for safe resume."""
     frozen = {
         "analysis_manifest_sha256": file_sha256(analysis_path),
         "run_manifest_sha256": file_sha256(run_manifest_path),
@@ -334,6 +359,7 @@ def build_metadata(
 
 
 def validate_run_manifest(manifest: dict[str, Any]) -> None:
+    """Check the subset of run-manifest fields required by this runner."""
     if manifest.get("schema_version") != "0.1.0":
         raise ValueError("run manifest schema_version must be 0.1.0")
     model = manifest.get("model")
@@ -350,6 +376,7 @@ def validate_run_manifest(manifest: dict[str, Any]) -> None:
 
 
 def render_report(document: dict[str, Any]) -> str:
+    """Render provider-derived results while stating the evidence boundary."""
     summaries = document["summaries"]
     comparison = document["comparisons"]
     run_count = sum(summary["attempts"] for summary in summaries.values())
@@ -410,16 +437,19 @@ def render_report(document: dict[str, Any]) -> str:
 
 
 def write_json_exclusive(path: Path, value: Any) -> None:
+    """Write formatted JSON without replacing an existing artifact."""
     with path.open("x", encoding="utf-8") as handle:
         json.dump(value, handle, indent=2, sort_keys=True)
         handle.write("\n")
 
 
 def format_optional_percent(value: float | None) -> str:
+    """Format an optional fractional change for a human-readable report."""
     return f"{value:+.1%}" if value is not None else "not estimable"
 
 
 def load_json(path: Path) -> dict[str, Any]:
+    """Load a JSON object and reject other top-level values."""
     with path.open("r", encoding="utf-8") as handle:
         value = json.load(handle)
     if not isinstance(value, dict):
@@ -428,15 +458,18 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def file_sha256(path: Path) -> str:
+    """Return the lowercase SHA-256 digest of a file."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def resolve_path(value: str) -> Path:
+    """Resolve repository-relative arguments without changing absolute paths."""
     path = Path(value)
     return path if path.is_absolute() else ROOT / path
 
 
 def build_resume_command(arguments: argparse.Namespace) -> str:
+    """Build the command printed when an evaluation stops before completion."""
     command = [
         sys.executable,
         "-m",

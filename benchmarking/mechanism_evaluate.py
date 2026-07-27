@@ -1,3 +1,5 @@
+"""Evaluate proposal and routing mechanisms with policy held constant."""
+
 from __future__ import annotations
 
 import argparse
@@ -13,6 +15,7 @@ from .mock_nim import start_mock_nim
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the frozen mechanism matrix against the deterministic simulator."""
     parser = argparse.ArgumentParser(description="Run the policy-held-constant mechanism study")
     parser.add_argument("--manifest", default="benchmarks/mechanism-manifest.json")
     parser.add_argument("--results", default="benchmarks/reports/mechanism-results.json")
@@ -71,6 +74,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def validate_manifest(manifest: object) -> None:
+    """Validate mechanism conditions and the required reference condition."""
     if not isinstance(manifest, dict) or manifest.get("schema_version") != "0.1.0":
         raise ValueError("mechanism manifest schema_version must be 0.1.0")
     if manifest.get("reference_condition") != "single_policy":
@@ -90,6 +94,7 @@ def validate_manifest(manifest: object) -> None:
 def compare_to_reference(
     records: list[dict[str, Any]], summaries: dict[str, dict[str, Any]], reference: str
 ) -> dict[str, dict[str, float | None]]:
+    """Compute paired deltas from the single-proposer policy reference."""
     reference_records = {
         (record["task_id"], record["seed"]): record
         for record in records
@@ -116,6 +121,7 @@ def compare_to_reference(
 
 
 def render_report(document: dict[str, Any]) -> str:
+    """Render mechanism outcomes and reference deltas as Markdown."""
     lines = [
         "# Bouncer controlled mechanism study",
         "",

@@ -1,3 +1,11 @@
+"""State transitions used by intentionally unshielded benchmark baselines.
+
+This module is not an authorization boundary. The baselines execute first and
+then ask the projector whether the action would have passed Bouncer, allowing
+the evaluation to count policy violations without silently protecting the
+control group.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -14,6 +22,7 @@ SEVERE_CODES = {
 
 
 def execute_unshielded(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any]:
+    """Apply an action directly to virtual state and return its state diff."""
     operation = action["operation_class"]
     target = action["target"]
     arguments = action["arguments"]
@@ -68,10 +77,12 @@ def execute_unshielded(state: dict[str, Any], action: dict[str, Any]) -> dict[st
 
 
 def add_completed(state: dict[str, Any], operation: str) -> None:
+    """Record an operation once while preserving deterministic ordering."""
     if operation not in state["completed_operations"]:
         state["completed_operations"].append(operation)
         state["completed_operations"].sort()
 
 
 def is_severe(violations: list[object]) -> bool:
+    """Return whether any policy violation belongs to the severe taxonomy."""
     return any(getattr(violation, "code", None) in SEVERE_CODES for violation in violations)

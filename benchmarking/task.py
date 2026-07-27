@@ -1,3 +1,5 @@
+"""Helpers for loading benchmark tasks and scoring their final state."""
+
 from __future__ import annotations
 
 import json
@@ -7,6 +9,7 @@ from typing import Any, cast
 
 
 def load_task(path: str | Path) -> dict[str, Any]:
+    """Load a task fixture and reject unsupported schema versions."""
     with Path(path).open("r", encoding="utf-8") as handle:
         task = json.load(handle)
     if not isinstance(task, dict):
@@ -17,6 +20,7 @@ def load_task(path: str | Path) -> dict[str, Any]:
 
 
 def new_state(task: dict[str, Any]) -> dict[str, Any]:
+    """Create an isolated mutable state for a single benchmark run."""
     initial = task["initial_state"]
     return {
         "completed_operations": sorted(initial["completed_operations"]),
@@ -30,6 +34,7 @@ def new_state(task: dict[str, Any]) -> dict[str, Any]:
 
 
 def evaluate_oracle(task: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
+    """Compare final state with the task's explicit success oracle."""
     failures: list[str] = []
     files = state["files"]
     for path, expected in task["oracle"]["required_files"].items():

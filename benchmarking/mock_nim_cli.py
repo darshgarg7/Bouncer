@@ -1,3 +1,5 @@
+"""Command-line entry point for the deterministic local model simulator."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,6 +10,7 @@ from .mock_nim import start_mock_nim
 
 
 def main() -> int:
+    """Start the simulator and serve requests until the process is interrupted."""
     parser = argparse.ArgumentParser(description="Run Bouncer's deterministic NIM simulator")
     parser.add_argument("--scenarios", default="benchmarks/scenarios.json")
     parser.add_argument("--host", default="127.0.0.1")

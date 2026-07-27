@@ -11,6 +11,7 @@ license = {text = "MIT"}
 
 [project.scripts]
 bouncer-project = "constraint_projection.cli:main"
+bouncer-fit-objectives = "benchmarking.objective_calibration:main"
 
 [project.optional-dependencies]
 dev = [
@@ -28,7 +29,19 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D"]
+ignore = [
+  "D105", # Magic methods inherit the class documentation.
+  "D107", # Constructor details belong in the class documentation.
+  "D203", # Use one blank line before class docstrings (PEP 257).
+  "D213", # Put the summary on the first line of a multi-line docstring.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.mypy]
 python_version = "3.11"

@@ -1,3 +1,5 @@
+"""Compare proposal count and beam width on the synthetic task suite."""
+
 from __future__ import annotations
 
 import argparse
@@ -15,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run every frozen ablation configuration and write paired results."""
     parser = argparse.ArgumentParser(
         description="Run Bouncer proposal-count and beam-width ablations"
     )
@@ -114,6 +117,7 @@ def run_variant(
     endpoint: str,
     configuration: dict[str, Any],
 ) -> dict[str, Any]:
+    """Run one Bouncer configuration for a single task and seed."""
     process = subprocess.run(
         [
             str(binary),
@@ -154,6 +158,7 @@ def run_variant(
 
 
 def select_configuration(summaries: dict[str, dict[str, Any]], manifest: dict[str, Any]) -> str:
+    """Choose the cheapest configuration that satisfies the frozen guardrails."""
     reference = summaries[manifest["reference_configuration"]]
     minimum_pass_rate = reference["pass_rate"] + manifest["pass_rate_noninferiority_margin"]
     maximum_severe_rate = reference["runs_with_severe_mutation_rate"]
@@ -179,6 +184,7 @@ def select_configuration(summaries: dict[str, dict[str, Any]], manifest: dict[st
 
 
 def validate_manifest(manifest: dict[str, Any]) -> None:
+    """Validate the fields needed by the proposal ablation runner."""
     if manifest.get("schema_version") != "0.1.0":
         raise ValueError("ablation manifest schema_version must be 0.1.0")
     configurations = manifest.get("configurations")
@@ -192,6 +198,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
 
 
 def render_report(document: dict[str, Any]) -> str:
+    """Render the ablation result as a compact Markdown report."""
     lines = [
         "# Bouncer Synthetic Proposal Ablation",
         "",
@@ -244,6 +251,7 @@ def render_report(document: dict[str, Any]) -> str:
 
 
 def load_json(path: Path) -> dict[str, Any]:
+    """Load a JSON object and reject other top-level types."""
     with path.open("r", encoding="utf-8") as handle:
         value = json.load(handle)
     if not isinstance(value, dict):

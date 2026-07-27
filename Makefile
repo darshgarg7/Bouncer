@@ -1,4 +1,5 @@
 VENV ?= .venv
+.DEFAULT_GOAL := help
 
 ifneq ($(wildcard $(VENV)/bin/python),)
 PYTHON ?= $(VENV)/bin/python
@@ -10,7 +11,16 @@ RUFF ?= ruff
 MYPY ?= mypy
 endif
 
-.PHONY: bootstrap build check containers coverage format-check fuzz-smoke lint test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation
+.PHONY: help bootstrap build check containers coverage format format-check fuzz-smoke lint test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation
+
+help:
+	@echo "Common targets:"
+	@echo "  bootstrap  Create .venv and install development dependencies"
+	@echo "  check      Run tests, formatting checks, linters, and builds"
+	@echo "  format     Apply Go and Python formatting"
+	@echo "  coverage   Enforce the current Go coverage ratchet"
+	@echo "  build      Build command binaries under bin/"
+	@echo "  fuzz-smoke Run short decoder and router fuzz sessions"
 
 bootstrap:
 	./tools/bootstrap.sh "$(VENV)"
@@ -33,6 +43,11 @@ check: test format-check lint build
 
 coverage:
 	./tools/check_go_coverage.sh
+
+format:
+	gofmt -w cmd internal
+	$(RUFF) format .
+	$(RUFF) check --fix .
 
 fuzz-smoke:
 	go test -run '^$$' -fuzz FuzzDecodeBeamNeverPanics -fuzztime 5s ./internal/action

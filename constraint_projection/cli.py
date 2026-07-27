@@ -1,3 +1,10 @@
+"""Command-line interface for deterministic constraint projection.
+
+The command accepts either one action or a batch. Stream mode keeps a single
+projector process alive, which is useful when a benchmark evaluates many small
+batches and process startup would dominate the measured latency.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -10,6 +17,7 @@ from .projector import ProjectionResult, Projector, load_dag
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser shared by the console script and tests."""
     parser = argparse.ArgumentParser(
         description="Project a Bouncer candidate action through deterministic constraints."
     )
@@ -38,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Validate arguments, evaluate the input envelope, and print the result."""
     arguments = build_parser().parse_args(argv)
     if arguments.stream and arguments.format != "json":
         print("bouncer-project: --stream requires --format json", file=sys.stderr)

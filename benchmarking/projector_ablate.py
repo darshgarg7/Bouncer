@@ -1,3 +1,5 @@
+"""Compare subprocess and persistent Python projector lifecycles."""
+
 from __future__ import annotations
 
 import argparse
@@ -16,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run both projector modes and select the non-regressing faster mode."""
     parser = argparse.ArgumentParser(description="Run Bouncer projector lifecycle ablation")
     parser.add_argument(
         "--manifest",
@@ -105,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def render_report(document: dict[str, Any]) -> str:
+    """Render projector latency and correctness summaries as Markdown."""
     lines = [
         "# Bouncer Synthetic Projector Lifecycle Ablation",
         "",

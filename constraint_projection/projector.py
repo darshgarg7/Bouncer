@@ -1,3 +1,10 @@
+"""Reference implementation of Bouncer's deterministic action policy.
+
+The Go evaluator is the runtime authority. This Python version stays small and
+independent so differential tests can catch semantic drift between the two
+implementations.
+"""
+
 from __future__ import annotations
 
 import json
@@ -44,11 +51,14 @@ class DAGConfigurationError(ValueError):
 
 @dataclass(frozen=True)
 class ConstraintViolation:
+    """One canonical reason that an action cannot be admitted."""
+
     code: str
     details: tuple[tuple[str, str], ...] = ()
 
     @classmethod
     def create(cls, code: str, **details: object) -> ConstraintViolation:
+        """Create a violation with details in stable serialization order."""
         ordered: list[tuple[str, str]] = []
         for key in DETAIL_ORDER:
             if key in details:
@@ -58,22 +68,28 @@ class ConstraintViolation:
         return cls(code=code, details=tuple(ordered))
 
     def sort_key(self) -> tuple[object, ...]:
+        """Return the stable ordering key used by both policy engines."""
         return (CODE_PRIORITY.get(self.code, 999), self.code, self.details)
 
     def as_dict(self) -> dict[str, object]:
+        """Convert the violation to its JSON-ready representation."""
         return {"code": self.code, "details": dict(self.details)}
 
 
 @dataclass(frozen=True)
 class ProjectionResult:
+    """The admission decision and all canonical violations for one action."""
+
     action_id: str
     violations: tuple[ConstraintViolation, ...]
 
     @property
     def allowed(self) -> bool:
+        """Report whether the action passed every declared constraint."""
         return not self.violations
 
     def to_xml(self) -> str:
+        """Serialize the decision as compact feedback for the next model turn."""
         if self.allowed:
             return f"<constraint_pass action_id={quoteattr(self.action_id)}/>"
         lines: list[str] = []
@@ -87,6 +103,7 @@ class ProjectionResult:
         return "\n".join(lines)
 
     def to_json(self) -> str:
+        """Serialize the decision as stable compact JSON."""
         return json.dumps(
             self.as_dict(),
             ensure_ascii=False,
@@ -95,6 +112,7 @@ class ProjectionResult:
         )
 
     def as_dict(self) -> dict[str, object]:
+        """Convert the complete decision to a JSON-ready mapping."""
         return {
             "action_id": self.action_id,
             "allowed": self.allowed,
@@ -104,6 +122,8 @@ class ProjectionResult:
 
 
 class Projector:
+    """Evaluate candidate actions against a validated dependency DAG."""
+
     def __init__(self, operations: Mapping[str, Sequence[str]]) -> None:
         self._operations = validate_dag(operations)
 
@@ -113,6 +133,7 @@ class Projector:
         state: Mapping[str, Any],
         policy: Mapping[str, Any],
     ) -> ProjectionResult:
+        """Evaluate one action without mutating the action, state, or policy."""
         action_id = _safe_action_id(action)
         malformed = _validate_action_shape(action)
         if malformed:
@@ -215,6 +236,7 @@ class Projector:
 
 
 def load_dag(path: str | Path) -> dict[str, tuple[str, ...]]:
+    """Load and validate an operation dependency DAG from JSON."""
     source = Path(path)
     with source.open("r", encoding="utf-8") as handle:
         document = json.load(handle)
@@ -229,6 +251,7 @@ def load_dag(path: str | Path) -> dict[str, tuple[str, ...]]:
 def validate_dag(
     operations: Mapping[str, Sequence[str]],
 ) -> dict[str, tuple[str, ...]]:
+    """Normalize a dependency graph and reject missing nodes or cycles."""
     normalized: dict[str, tuple[str, ...]] = {}
     for operation, dependencies in operations.items():
         if not isinstance(operation, str) or not operation:

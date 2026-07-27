@@ -1,3 +1,9 @@
+"""Deterministic OpenAI-compatible simulator for integration tests.
+
+The simulator follows checked-in task scenarios, including deliberate hazards.
+It is a protocol fixture, not a model-quality substitute.
+"""
+
 from __future__ import annotations
 
 import json
@@ -18,11 +24,14 @@ STATE_MARKER = "Typed state JSON:\n"
 
 @dataclass
 class RunningMockNIM:
+    """A simulator server and the background thread that owns it."""
+
     server: ThreadingHTTPServer
     thread: threading.Thread
 
     @property
     def endpoint(self) -> str:
+        """Return the OpenAI-compatible base URL for this server."""
         address = self.server.server_address
         host, port = address[0], address[1]
         if isinstance(host, bytes):
@@ -30,6 +39,7 @@ class RunningMockNIM:
         return f"http://{host}:{port}/v1"
 
     def close(self) -> None:
+        """Stop the server and release its listening socket."""
         self.server.shutdown()
         self.thread.join(timeout=5)
         self.server.server_close()
@@ -46,6 +56,7 @@ def start_mock_nim(
     host: str = "127.0.0.1",
     port: int = 0,
 ) -> RunningMockNIM:
+    """Start a simulator from a scenario document on a background thread."""
     scenarios = load_scenarios(scenarios_path)
 
     class Handler(MockNIMHandler):
@@ -58,6 +69,7 @@ def start_mock_nim(
 
 
 def load_scenarios(path: str | Path) -> dict[str, dict[str, Any]]:
+    """Load the task-to-scenario mapping used by the simulator."""
     with Path(path).open("r", encoding="utf-8") as handle:
         document = json.load(handle)
     if document.get("schema_version") != "0.1.0" or not isinstance(document.get("scenarios"), dict):
@@ -66,15 +78,19 @@ def load_scenarios(path: str | Path) -> dict[str, dict[str, Any]]:
 
 
 class MockNIMHandler(BaseHTTPRequestHandler):
+    """Serve health checks and a minimal chat-completions endpoint."""
+
     scenario_map: ClassVar[dict[str, dict[str, Any]]] = {}
 
     def do_GET(self) -> None:
+        """Serve readiness and liveness endpoints."""
         if self.path in {"/v1/health/ready", "/v1/health/live"}:
             self._send_json({"status": "ready"})
             return
         self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
+        """Return a deterministic chat completion for a valid request."""
         if self.path != "/v1/chat/completions":
             self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
             return
@@ -88,6 +104,7 @@ class MockNIMHandler(BaseHTTPRequestHandler):
         self._send_json(response)
 
     def log_message(self, _format: str, *_arguments: object) -> None:
+        """Suppress the standard library's per-request stderr logging."""
         return
 
     def _send_json(self, value: object, status: HTTPStatus = HTTPStatus.OK) -> None:
@@ -103,6 +120,7 @@ def build_response(
     request: dict[str, Any],
     scenarios: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
+    """Build one OpenAI-compatible response from a typed simulator request."""
     messages = request.get("messages")
     if not isinstance(messages, list) or not messages:
         raise ValueError("messages must be a non-empty array")
@@ -156,6 +174,7 @@ def build_response(
 
 
 def parse_state(user_message: str) -> dict[str, Any]:
+    """Extract typed state from the user message sent by a benchmark client."""
     marker_index = user_message.find(STATE_MARKER)
     if marker_index < 0:
         raise ValueError("user message does not contain typed state")
@@ -172,6 +191,7 @@ def generate_candidates(
     state: dict[str, Any],
     seed: int,
 ) -> list[dict[str, Any]]:
+    """Generate the next deterministic candidates for a task and state."""
     steps = scenario["steps"]
     step_index = int(state.get("benchmark_step", 0))
     ideal_template = steps[min(step_index, len(steps) - 1)]
@@ -252,6 +272,7 @@ def candidate_from_template(
     cost: float,
     risk: float,
 ) -> dict[str, Any]:
+    """Copy a scenario template and assign a stable candidate identifier."""
     candidate = deepcopy(template)
     candidate["candidate_id"] = f"s{seed}-step{step}-{label}"
     candidate["estimated_objectives"] = {

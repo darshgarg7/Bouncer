@@ -1,3 +1,9 @@
+"""Run and analyze Bouncer's deterministic minimum viable benchmark.
+
+This study is intentionally synthetic. It checks integration behavior and
+frozen decision rules before spending provider budget on a real-model study.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -20,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the complete synthetic matrix and write JSON and Markdown reports."""
     parser = argparse.ArgumentParser(description="Run Bouncer's synthetic MVB")
     parser.add_argument(
         "--analysis-manifest",
@@ -39,6 +46,8 @@ def main(argv: list[str] | None = None) -> int:
         manifest = json.load(handle)
     validate_analysis_manifest(manifest)
 
+    # All conditions share the same tasks and seeds. Keeping that pairing
+    # explicit is important for the bootstrap comparisons below.
     task_paths = sorted(ROOT.glob(manifest["task_glob"]))
     if len(task_paths) != 10:
         raise SystemExit(f"expected 10 tasks, found {len(task_paths)}")
@@ -90,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
                     )
                 )
 
+    # Reports are derived from compact per-run records rather than manually
+    # transcribed tables, which keeps the narrative tied to raw outcomes.
     summaries = {
         condition: summarize([record for record in records if record["condition"] == condition])
         for condition in manifest["conditions"]
@@ -133,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def validate_analysis_manifest(manifest: dict[str, Any]) -> None:
+    """Reject analysis settings that would change the frozen comparison."""
     if manifest.get("schema_version") != "0.1.0":
         raise ValueError("analysis manifest schema_version must be 0.1.0")
     if manifest.get("conditions") != ["langgraph", "structured", "bouncer"]:
@@ -153,6 +165,7 @@ def run_bouncer(
     api_key: str = "",
     extra_args: Sequence[str] = (),
 ) -> dict[str, Any]:
+    """Run the Go control loop once and decode its JSON result."""
     process_environment = os.environ.copy()
     if api_key:
         process_environment["NIM_API_KEY"] = api_key
@@ -189,6 +202,7 @@ def run_bouncer(
 
 
 def compact_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Keep only fields used by aggregate analysis and published reports."""
     fields = (
         "condition",
         "task_id",
@@ -212,6 +226,7 @@ def compact_record(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate success, safety, token, and latency metrics for a condition."""
     successful = [record for record in records if record["passed"]]
     severe_runs = [record for record in records if record["severe_mutations"] > 0]
     return {
@@ -248,6 +263,7 @@ def compare_conditions(
     summaries: dict[str, dict[str, Any]],
     manifest: dict[str, Any],
 ) -> dict[str, Any]:
+    """Apply the frozen paired tests and choose the next-step decision."""
     baseline_name = manifest["primary_baseline"]
     baseline = summaries[baseline_name]
     bouncer = summaries["bouncer"]
@@ -345,6 +361,7 @@ def compare_conditions(
 def pair_records(
     records: list[dict[str, Any]], left: str, right: str
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Pair two conditions by task identifier and random seed."""
     by_condition = {
         condition: {
             (record["task_id"], record["seed"]): record
@@ -360,6 +377,7 @@ def pair_records(
 def bootstrap_mean_ci(
     values: Sequence[float], samples: int, confidence: float, seed: int
 ) -> tuple[float, float]:
+    """Estimate a percentile-bootstrap interval for a paired mean."""
     if not values:
         return (math.nan, math.nan)
     randomizer = random.Random(seed)
@@ -372,6 +390,7 @@ def bootstrap_mean_ci(
 
 
 def percentile(values: Iterable[float], quantile: float) -> float:
+    """Return a linearly interpolated quantile from an iterable of values."""
     ordered = sorted(values)
     if not ordered:
         return math.nan
@@ -385,6 +404,7 @@ def percentile(values: Iterable[float], quantile: float) -> float:
 
 
 def render_report(document: dict[str, Any]) -> str:
+    """Render the synthetic evaluation and its evidence boundaries."""
     summaries = document["summaries"]
     comparison = document["comparisons"]
     h1 = "SUPPORTED" if comparison["h1_supported_in_simulation"] else "NOT SUPPORTED"
