@@ -27,6 +27,7 @@ def summarize(directory: Path) -> dict[str, Any]:
     """Verify each task artifact and build one publication summary."""
     results: list[dict[str, Any]] = []
     anchors: dict[str, dict[str, Any]] = {}
+    outcomes: dict[str, dict[str, Any]] = {}
     started_payload: dict[str, Any] | None = None
     calibration: dict[str, Any] | None = None
     for task_id in TASK_IDS:
@@ -81,6 +82,16 @@ def summarize(directory: Path) -> dict[str, Any]:
             "terminal_event": recorded_verification.get("terminal_event"),
             "final_hash": final_hash,
         }
+        outcomes[task_id] = {
+            "passed": bool(result.get("passed")),
+            "task_complete": bool(result.get("task_complete")),
+            "oracle_failures": result.get("oracle_failures", []),
+            "turns": int(result.get("turns", 0)),
+            "model_calls": int(result.get("model_calls", 0)),
+            "total_tokens": int(result.get("total_tokens", 0)),
+            "constraint_rejections": int(result.get("constraint_rejections", 0)),
+            "executed_actions": int(result.get("executed_actions", 0)),
+        }
         results.append(result)
     if started_payload is None or calibration is None:
         raise ValueError("pilot did not contain any tasks")
@@ -109,6 +120,7 @@ def summarize(directory: Path) -> dict[str, Any]:
         "total_model_calls": sum(int(result.get("model_calls", 0)) for result in results),
         "total_tokens": sum(int(result.get("total_tokens", 0)) for result in results),
         "objective_calibration": calibration,
+        "task_outcomes": outcomes,
         "event_chain_anchors": anchors,
         "scope": {
             "tasks": "three authored deterministic virtual-state tasks",
@@ -126,45 +138,57 @@ def render_report(summary: dict[str, Any]) -> str:
     """Render a concise human-readable pilot report."""
     calibration = cast(dict[str, Any], summary["objective_calibration"])
     source = cast(dict[str, Any], summary["source"])
-    return "\n".join(
-        [
-            "# NVIDIA hosted-provider pilot",
-            "",
-            f"**Pilot:** `{summary['pilot_id']}`",
-            f"**Generated:** {summary['generated_at']}",
-            f"**Source revision:** `{source['revision']}`",
-            f"**Source fingerprint:** `{source['fingerprint_sha256']}`",
-            f"**Model:** `{summary['model']}`",
-            f"**Objective artifact:** `{calibration['calibration_id']}`",
-            "",
-            "> This is connectivity and control-loop compatibility evidence, not evidence of "
-            "model effectiveness, comparative quality, or production safety.",
-            "",
-            "## Result",
-            "",
-            f"- {summary['successes']}/{summary['attempts']} authored virtual tasks passed;",
-            f"- {summary['constraint_rejections']} proposals were rejected before execution;",
-            f"- {summary['severe_mutations']} severe virtual mutations were observed;",
-            f"- {summary['total_model_calls']} hosted model calls used "
-            f"{summary['total_tokens']:,} provider-reported tokens; and",
-            "- all three lifecycle chains verify against the terminal hashes in `summary.json`.",
-            "",
-            "The bootstrap objective artifact gives model-authored latency, cost, and risk "
-            "values zero routing influence. Each event chain begins with `run.started`, ends "
-            "with `run.completed`, and has a stable run/task identity.",
-            "",
-            "## Evidence boundary",
-            "",
-            "These are three deterministic repository fixtures, one model, one seed, a virtual "
-            "executor, and no baseline. The checked-in terminal hashes detect accidental or "
-            "partial tampering relative to this repository state, but they are not signatures "
-            "and are not independently timestamped external anchors.",
-            "",
-            "Machine-readable totals, calibration metadata, source provenance, and per-task "
-            "terminal hashes are in [`summary.json`](summary.json).",
-            "",
-        ]
-    )
+    outcomes = cast(dict[str, dict[str, Any]], summary["task_outcomes"])
+    outcome_lines = []
+    for task_id in TASK_IDS:
+        outcome = outcomes[task_id]
+        status = "pass" if outcome["passed"] else "fail"
+        detail = ""
+        if outcome["oracle_failures"]:
+            detail = " — " + "; ".join(str(item) for item in outcome["oracle_failures"])
+        outcome_lines.append(f"- `{task_id}`: **{status}**{detail}")
+    lines = [
+        "# NVIDIA hosted-provider pilot",
+        "",
+        f"**Pilot:** `{summary['pilot_id']}`",
+        f"**Generated:** {summary['generated_at']}",
+        f"**Source revision:** `{source['revision']}`",
+        f"**Source fingerprint:** `{source['fingerprint_sha256']}`",
+        f"**Model:** `{summary['model']}`",
+        f"**Objective artifact:** `{calibration['calibration_id']}`",
+        "",
+        "> This is connectivity and control-loop compatibility evidence, not evidence of "
+        "model effectiveness, comparative quality, or production safety.",
+        "",
+        "## Result",
+        "",
+        f"- {summary['successes']}/{summary['attempts']} authored virtual tasks passed;",
+        f"- {summary['constraint_rejections']} proposals were rejected before execution;",
+        f"- {summary['severe_mutations']} severe virtual mutations were observed;",
+        f"- {summary['total_model_calls']} hosted model calls used "
+        f"{summary['total_tokens']:,} provider-reported tokens; and",
+        "- all three lifecycle chains verify against the terminal hashes in `summary.json`.",
+        "",
+        "### Per-task outcomes",
+        "",
+        *outcome_lines,
+        "",
+        "The bootstrap objective artifact gives model-authored latency, cost, and risk "
+        "values zero routing influence. Each event chain begins with `run.started`, ends "
+        "with `run.completed`, and has a stable run/task identity.",
+        "",
+        "## Evidence boundary",
+        "",
+        "These are three deterministic repository fixtures, one model, one seed, a virtual "
+        "executor, and no baseline. The checked-in terminal hashes detect accidental or "
+        "partial tampering relative to this repository state, but they are not signatures "
+        "and are not independently timestamped external anchors.",
+        "",
+        "Machine-readable totals, calibration metadata, source provenance, and per-task "
+        "terminal hashes are in [`summary.json`](summary.json).",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def write_exclusive(path: Path, content: str) -> None:
@@ -173,14 +197,41 @@ def write_exclusive(path: Path, content: str) -> None:
         handle.write(content)
 
 
+def write_summary(path: Path, content: str, *, refresh: bool) -> None:
+    """Write a derived summary, optionally refreshing only an existing summary."""
+    if refresh:
+        if not path.is_file():
+            raise ValueError(f"cannot refresh missing summary: {path}")
+        path.write_text(content, encoding="utf-8")
+        return
+    write_exclusive(path, content)
+
+
 def main() -> None:
     """Validate one directory and create its JSON and Markdown summaries."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="refresh existing derived summary files without changing raw task artifacts",
+    )
     args = parser.parse_args()
+    previous_source = None
+    if args.refresh:
+        previous = load_object(args.directory / "summary.json")
+        previous_source = previous.get("source")
     summary = summarize(args.directory)
-    write_exclusive(args.directory / "summary.json", json.dumps(summary, indent=2) + "\n")
-    write_exclusive(args.directory / "README.md", render_report(summary))
+    if isinstance(previous_source, dict):
+        if previous_source.get("fingerprint_sha256") != summary["source"]["fingerprint_sha256"]:
+            raise ValueError("cannot refresh a pilot after execution-source changes")
+        summary["source"] = previous_source
+    write_summary(
+        args.directory / "summary.json",
+        json.dumps(summary, indent=2) + "\n",
+        refresh=args.refresh,
+    )
+    write_summary(args.directory / "README.md", render_report(summary), refresh=args.refresh)
     print(json.dumps(summary, indent=2))
 
 
