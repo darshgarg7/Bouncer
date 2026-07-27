@@ -29,10 +29,10 @@ Prompt rules and model judges leave a stochastic interpretation directly in fron
 | Policy authority | Canonical Go evaluator for operations, roots, protected paths, dependencies, and mutation limits | 100,000 generated cases match the independent Python reference |
 | Routing | First-valid, safety-first lexicographic, scalar utility, Pareto-plus-utility, seeded random-safe, and ε-Pareto policies | Deterministic mechanism study only |
 | Compute control | Optional 1→N adaptive proposal expansion triggered by validity and objective-space spread | Deterministic mechanism study only |
-| Provider boundary | OpenAI-compatible adapter plus exact recorded-request replay adapter | Local contract tests; real-provider runner has no published result |
+| Provider boundary | OpenAI-compatible adapter plus exact recorded-request replay adapter | Published three-task hosted smoke pilot; provider qualification and comparative evidence remain open |
 | Execution | Reversible virtual executor, authenticated remote protocol, transition verification, and durable idempotency replay | Reference implementation, not a general host-tool sandbox |
 | Linux filesystem broker | `openat2` rooted lookup, no symlinks or magic links, hard-link denial, bounded I/O, no unrestricted commands | Linux adversarial tests and independent review still required |
-| Evidence | Monotonic sequence, SHA-256 event chain, exclusive artifact creation, standalone verifier | Tamper/reorder tests pass |
+| Evidence | Complete-run lifecycle, monotonic sequence, SHA-256 event chain, exclusive artifact creation, standalone verifier | Tamper, reorder, truncation, and mixed-identity tests pass; whole-chain rewrites require an external hash anchor |
 | Operations | OTLP/HTTP traces, trace propagation, Prometheus-compatible sandbox metrics, pinned CI actions, race and fuzz gates | Load, chaos, recovery, and deployment SLO qualification remain open |
 | Offline evaluation | IPS, self-normalized IPS, clipped IPS, doubly robust estimation, bootstrap intervals, support/weight/ESS/disagreement gates | Validated only in a known-ground-truth simulator |
 
@@ -59,6 +59,19 @@ The current policy-held-constant study is more revealing:
 | Uniform random-safe | 50% | 0/50 | 3,279 |
 
 The project follows its stop rule: **single proposer + deterministic policy is now the default.** Adaptive and ensemble modes remain experimental until real tasks show value. Uniform random-safe routing is a scientific control, not a recommended execution policy. See the generated [mechanism report](benchmarks/reports/mechanism.md) and [claim register](docs/CLAIMS.md).
+
+### Real-provider smoke evidence
+
+On July 26, 2026, the frozen single-proposer configuration completed 3/3
+selected authored tasks with NVIDIA's hosted Nemotron 3 Ultra model. The run
+recorded 15 proposal rounds, 3 deterministic policy rejections followed by
+successful replanning, 12 virtual actions, 14,362 provider-reported tokens on
+strictly parsed responses, and zero severe virtual mutations. Every event chain terminates and
+verifies.
+
+This is real-provider connectivity and control-loop evidence, not a model
+comparison or production-safety result. Read the scoped report and raw artifacts
+in the [NVIDIA hosted pilot](benchmarks/reports/nvidia-hosted-pilot-2026-07-26/README.md).
 
 For a narrative tour of the control loop, state machine, and transition
 verification boundary, read the
@@ -200,7 +213,7 @@ make evaluate-ope-simulation
 
 ## What remains before a strong public claim
 
-- Run the frozen provider qualification against exact model and server revisions.
+- Scale the published three-task hosted smoke pilot into the frozen provider qualification.
 - Integrate and audit externally maintained task environments; the ten checked-in tasks remain smoke tests.
 - Complete Linux adversarial containment, load, chaos, recovery, and rollback exercises.
 - Add calibrated measured objectives; model-authored estimates are currently untrusted predictions.

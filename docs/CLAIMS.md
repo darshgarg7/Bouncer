@@ -9,6 +9,7 @@ This file is the authoritative boundary between what Bouncer has demonstrated an
 | E0 | Design or hypothesis only |
 | E1 | Unit, property, or deterministic conformance evidence |
 | E2 | Controlled synthetic integration evidence |
+| E2P | Real-provider smoke evidence on authored, unaudited tasks |
 | E3 | Real-provider evidence on audited tasks |
 | E4 | Reproduced across model families and task domains |
 | E5 | Independently reproduced or externally reviewed |
@@ -27,9 +28,10 @@ This file is the authoritative boundary between what Bouncer has demonstrated an
 | C-008 | In the policy-held-constant smoke study, single proposer + policy passed 50/50 with zero severe fixture mutations and used fewer synthetic tokens than every tested multi-candidate configuration. | E2 | `benchmarks/reports/mechanism-results.json` | Must say “policy-held-constant smoke study” and “synthetic tokens.” |
 | C-009 | Adaptive 1→3×3 passed 50/50 with zero severe fixture mutations and used 456 more mean synthetic tokens than single proposer + policy, versus 5,708 more for fixed 3×3. | E2 | `benchmarks/reports/mechanism-results.json` | May support making adaptive mode experimental; it does not establish real-model value. |
 | C-010 | Uniform random-safe routing passed 25/50 in the smoke study and is unsuitable as a default policy. | E2 | `benchmarks/reports/mechanism-results.json` | Present as a negative control result. |
-| C-011 | Event verification detects modified or reordered records, and current event logs carry a monotonic sequence and SHA-256 chain. | E1 | `internal/eventlog`, `cmd/bouncer-verify-log`, tests | “Bouncer produces tamper-evident logs”; do not call them tamper-proof. |
+| C-011 | Event verification detects modified, reordered, suffix-truncated, or mixed-identity records; complete logs carry a monotonic sequence and SHA-256 chain from `run.started` through one terminal event. | E1 | `internal/eventlog`, `cmd/bouncer-verify-log`, tests | “Bouncer produces tamper-evident logs”; do not call them tamper-proof, and require an external final-hash anchor to detect whole-chain replacement. |
 | C-012 | The offline estimators recover the known target value within the checked-in contextual-bandit simulation and fail their support/weight gates on invalid input. | E1 | `benchmarking/ope.py`, `benchmarking/ope_simulation.py`, `tests/test_ope.py` | Must say “known-ground-truth simulation”; no real causal claim. |
 | C-013 | The Linux rooted executor uses `openat2` beneath/no-symlink resolution, rejects hard-linked targets, bounds I/O, and refuses unrestricted commands. | E1 | `internal/executor/rooted_linux.go`, Linux-only adversarial tests | Must not imply independent sandbox qualification. |
+| C-014 | In a fixed three-task hosted smoke pilot, Nemotron 3 Ultra completed 3/3 authored virtual tasks; three rejected proposals were not executed, and all terminal event chains verified. | E2P | `benchmarks/reports/nvidia-hosted-pilot-2026-07-26` | Must state the three-task denominator, authored/virtual scope, one model and seed, and absence of a comparison baseline. |
 
 ## Unsupported claims
 

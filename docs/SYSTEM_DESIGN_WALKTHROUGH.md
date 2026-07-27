@@ -126,9 +126,11 @@ attributed to the deterministic boundary, not bundled with extra model calls.
 ## What the prototype does not claim
 
 Bouncer is not a production sandbox or a general agent-safety proof. The
-checked-in benchmark tasks are authored smoke tests. The Linux rooted executor
-is a narrow filesystem broker, not a general tool environment. Real-provider,
-adversarial-containment, recovery, and independent-review work remain open.
+checked-in benchmark tasks are authored smoke tests. A three-task hosted-model
+pilot exercises the complete virtual control loop, but is not comparative
+provider qualification. The Linux rooted executor is a narrow filesystem
+broker, not a general tool environment. Adversarial-containment, recovery, and
+independent-review work remain open.
 
 The design contribution is smaller and more concrete: a model proposal can be
 treated as untrusted input, passed through an inspectable authorization boundary,

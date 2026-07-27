@@ -75,7 +75,7 @@ Two follow-up ablations isolate the dominant costs:
 - [proposal ablation](../benchmarks/reports/synthetic-ablation.md): 1x3 reduced mean tokens by 72.5% relative to 3x5 while preserving all fixture gates;
 - [projector lifecycle ablation](../benchmarks/reports/synthetic-projector-ablation.md): persistent projection reduced mean local latency from 251 ms to 51 ms without changing decisions.
 
-Both remain simulator evidence until repeated against the real provider.
+Both remain simulator evidence until repeated in a comparative real-provider study.
 
 The newer [controlled mechanism study](../benchmarks/reports/mechanism.md) made the stop decision explicit:
 
@@ -85,6 +85,20 @@ The newer [controlled mechanism study](../benchmarks/reports/mechanism.md) made 
 - uniform random-safe passed only 25/50.
 
 Single proposer + policy is therefore the runtime default. Multi-candidate modes remain experimental.
+
+## Hosted-provider smoke pilot
+
+The checked-in [NVIDIA hosted pilot](../benchmarks/reports/nvidia-hosted-pilot-2026-07-26/README.md)
+ran tasks 001–003 through the complete control loop with the frozen single-action
+manifest, canonical Go policy, and virtual executor. The hosted model completed
+3/3 exact task oracles. Three proposed actions were rejected for missing
+dependencies and were not executed; subsequent proposals completed the required
+sequence. All three event chains passed lifecycle and hash verification.
+
+This pilot is classified E2P rather than E3: its fixtures are authored and
+unaudited, it uses one model and seed, and it has no equal-permission comparison
+condition. Its 14,362 reported tokens describe strictly parsed responses in
+these runs; they do not establish a token advantage.
 
 ## Reproduction
 
