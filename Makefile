@@ -11,7 +11,7 @@ RUFF ?= ruff
 MYPY ?= mypy
 endif
 
-.PHONY: help bootstrap build check containers coverage format format-check fuzz-smoke lint release-audit release-check test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation
+.PHONY: help bootstrap build check containers coverage format format-check fuzz-smoke lint release-audit release-check test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation evaluate-learning
 
 help:
 	@echo "Common targets:"
@@ -22,6 +22,7 @@ help:
 	@echo "  coverage   Enforce the current Go coverage ratchet"
 	@echo "  build      Build command binaries under bin/"
 	@echo "  fuzz-smoke Run short decoder and router fuzz sessions"
+	@echo "  evaluate-learning  Run the known-truth ML routing simulator"
 
 bootstrap:
 	./tools/bootstrap.sh "$(VENV)"
@@ -97,3 +98,6 @@ evaluate-mechanisms:
 
 evaluate-ope-simulation:
 	$(PYTHON) -m benchmarking.ope_simulation --output benchmarks/results/ope-simulation.json
+
+evaluate-learning:
+	$(PYTHON) -m benchmarking.learning.evaluate --output benchmarks/results/learning-simulation.json
