@@ -13,6 +13,7 @@ import (
 	"bouncer/internal/calibration"
 	"bouncer/internal/executor"
 	"bouncer/internal/harness"
+	"bouncer/internal/learning"
 	"bouncer/internal/nimclient"
 	"bouncer/internal/projector"
 	"bouncer/internal/router"
@@ -27,6 +28,50 @@ func (function proposerFunc) Propose(ctx context.Context, request nimclient.Prop
 type projectorFunc func(context.Context, []action.Candidate, benchmark.State, benchmark.Policy) ([]projector.Result, error)
 
 type traceSinkFunc func(context.Context, TraceEvent) error
+
+type fixedLearningScorer struct{}
+
+func (fixedLearningScorer) Metadata() learning.Metadata {
+	return learning.Metadata{
+		SchemaVersion:        learning.ArtifactSchemaVersion,
+		FeatureSchemaVersion: learning.FeatureSchemaVersion,
+		ArtifactID:           "control-test-learning",
+		ArtifactSHA256:       strings.Repeat("0", 64),
+	}
+}
+
+func (fixedLearningScorer) Score(
+	_ context.Context,
+	_ learning.Context,
+	candidates []action.ScoredCandidate,
+) (learning.Batch, error) {
+	predictions := make([]learning.Prediction, 0, len(candidates))
+	for _, candidate := range candidates {
+		progress := 0.1
+		success := 0.1
+		risk := 0.1
+		if candidate.Candidate.OperationClass == "filesystem.write" {
+			progress = 0.9
+			success = 0.9
+			risk = 0.01
+		}
+		predictions = append(predictions, learning.Prediction{
+			Candidate: candidate.Candidate,
+			Features: map[string]float64{
+				"transition_log_probability": -1,
+			},
+			Progress:    learning.Estimate{Mean: progress, Conservative: progress},
+			Success:     learning.Estimate{Mean: success, Conservative: success},
+			LatencyMS:   learning.Estimate{Mean: 1, Conservative: 1},
+			CostUnits:   learning.Estimate{Mean: 1, Conservative: 1},
+			AdverseRisk: learning.Estimate{Mean: risk, Conservative: risk},
+		})
+	}
+	return learning.Batch{
+		Metadata:    fixedLearningScorer{}.Metadata(),
+		Predictions: predictions,
+	}, nil
+}
 
 func (function traceSinkFunc) Append(ctx context.Context, event TraceEvent) error {
 	return function(ctx, event)
@@ -225,6 +270,43 @@ func TestLoopCompletesTaskAndAggregatesTelemetry(t *testing.T) {
 			event.Payload["objective_source"] != "trusted_calibration_artifact" {
 			t.Fatalf("unexpected selection evidence: %+v", event.Payload)
 		}
+	}
+}
+
+func TestActiveLearningReranksOnlyPolicyAdmittedCandidates(t *testing.T) {
+	allowAll := projectorFunc(func(
+		_ context.Context,
+		candidates []action.Candidate,
+		_ benchmark.State,
+		_ benchmark.Policy,
+	) ([]projector.Result, error) {
+		results := make([]projector.Result, len(candidates))
+		for index, candidate := range candidates {
+			results[index] = projector.Result{ActionID: candidate.CandidateID, Allowed: true}
+		}
+		return results, nil
+	})
+	loop := testLoop(proposerFunc(stateAwareProposer), allowAll)
+	loop.MaxTurns = 1
+	loop.LearningScorer = fixedLearningScorer{}
+	loop.Learning = LearningConfig{
+		Mode: LearningActive,
+		Router: router.LearnedConfig{
+			RiskCeiling:            1,
+			MaxRelativeUncertainty: 1,
+			FrontierLimit:          16,
+		},
+	}
+	result, err := loop.Run(context.Background(), testTask(), 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.FinalState.Files["workspace/result.txt"] != "ready" {
+		t.Fatalf("learned router did not select the admitted write: %+v", result.FinalState)
+	}
+	if result.RoutingStrategy != "learned_pareto_safety_first" ||
+		result.LearningMode != LearningActive {
+		t.Fatalf("learning promotion evidence is missing: %+v", result)
 	}
 }
 

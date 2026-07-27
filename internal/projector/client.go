@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"bouncer/internal/action"
@@ -25,14 +27,40 @@ type PythonClient struct {
 	DAGPath    string
 }
 
+func (c PythonClient) GetPythonCmd() string {
+	python := c.Python
+	if python != "" {
+		if filepath.IsAbs(python) {
+			return python
+		}
+		if abs, err := filepath.Abs(python); err == nil {
+			return abs
+		}
+		return python
+	}
+	if c.WorkingDir != "" {
+		venvPath := filepath.Join(c.WorkingDir, ".venv", "bin", "python")
+		if _, err := os.Stat(venvPath); err == nil {
+			if abs, err := filepath.Abs(venvPath); err == nil {
+				return abs
+			}
+			return venvPath
+		}
+	}
+	if _, err := os.Stat(".venv/bin/python"); err == nil {
+		if abs, err := filepath.Abs(".venv/bin/python"); err == nil {
+			return abs
+		}
+		return ".venv/bin/python"
+	}
+	return "python3"
+}
+
 func (c PythonClient) Evaluate(ctx context.Context, actions []action.Candidate, state benchmark.State, policy benchmark.Policy) ([]Result, error) {
 	if len(actions) == 0 {
 		return nil, errors.New("projector requires at least one action")
 	}
-	python := c.Python
-	if python == "" {
-		python = "python3"
-	}
+	python := c.GetPythonCmd()
 	dagPath := c.DAGPath
 	if dagPath == "" {
 		dagPath = "configs/skill_dag.json"

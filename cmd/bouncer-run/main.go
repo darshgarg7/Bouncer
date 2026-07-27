@@ -20,6 +20,7 @@ import (
 	"bouncer/internal/eventlog"
 	"bouncer/internal/executor"
 	"bouncer/internal/harness"
+	"bouncer/internal/learning"
 	"bouncer/internal/nimclient"
 	"bouncer/internal/policy"
 	"bouncer/internal/projector"
@@ -29,34 +30,39 @@ import (
 )
 
 type runOptions struct {
-	ManifestPath         string
-	TaskPath             string
-	Endpoint             string
-	ProjectRoot          string
-	OutputPath           string
-	EventLogPath         string
-	SeedOverride         int64
-	ProposerOverride     int
-	BeamOverride         int
-	PolicyEngine         string
-	ExecutorMode         string
-	SandboxURL           string
-	AllowInsecureSandbox bool
-	RoutingStrategy      string
-	RiskCeiling          float64
-	LatencyWeight        float64
-	CostWeight           float64
-	RiskWeight           float64
-	AdaptiveProposals    bool
-	InitialProposers     int
-	MinimumValid         int
-	MinimumSpread        float64
-	ProviderKind         string
-	ReplayPath           string
-	ExplorationEpsilon   float64
-	OTLPEndpoint         string
-	TraceSampleRatio     float64
-	ObjectiveCalibration string
+	ManifestPath          string
+	TaskPath              string
+	Endpoint              string
+	ProjectRoot           string
+	OutputPath            string
+	EventLogPath          string
+	SeedOverride          int64
+	ProposerOverride      int
+	BeamOverride          int
+	PolicyEngine          string
+	ExecutorMode          string
+	SandboxURL            string
+	AllowInsecureSandbox  bool
+	RoutingStrategy       string
+	RiskCeiling           float64
+	LatencyWeight         float64
+	CostWeight            float64
+	RiskWeight            float64
+	AdaptiveProposals     bool
+	InitialProposers      int
+	MinimumValid          int
+	MinimumSpread         float64
+	ProviderKind          string
+	ReplayPath            string
+	ExplorationEpsilon    float64
+	OTLPEndpoint          string
+	TraceSampleRatio      float64
+	ObjectiveCalibration  string
+	LearningMode          string
+	LearningArtifact      string
+	LearningRiskCeiling   float64
+	LearningUncertainty   float64
+	LearningFrontierLimit int
 }
 
 func main() {
@@ -97,36 +103,66 @@ func main() {
 		"configs/objective-calibration.bootstrap.json",
 		"path to the trusted objective calibration artifact",
 	)
+	learningMode := flag.String(
+		"learning-mode",
+		control.LearningDisabled,
+		"learned routing promotion: disabled, shadow, or active",
+	)
+	learningArtifact := flag.String(
+		"learning-artifact",
+		"configs/learning-artifact.bootstrap.json",
+		"path to a portable learning artifact; bootstrap is shadow-only evidence",
+	)
+	learningRiskCeiling := flag.Float64(
+		"learning-risk-ceiling",
+		0.25,
+		"maximum uncertainty-adjusted learned adverse risk in [0,1]",
+	)
+	learningUncertainty := flag.Float64(
+		"learning-max-relative-uncertainty",
+		0.5,
+		"maximum relative uncertainty admitted to the learned Pareto set",
+	)
+	learningFrontierLimit := flag.Int(
+		"learning-frontier-limit",
+		16,
+		"maximum retained learned Pareto-front candidates",
+	)
 	flag.Parse()
 	if err := run(runOptions{
-		ManifestPath:         *manifestPath,
-		TaskPath:             *taskPath,
-		Endpoint:             *endpoint,
-		ProjectRoot:          *projectRoot,
-		OutputPath:           *outputPath,
-		EventLogPath:         *eventLogPath,
-		SeedOverride:         *seed,
-		ProposerOverride:     *proposerCount,
-		BeamOverride:         *beamWidth,
-		PolicyEngine:         resolvePolicyEngine(*policyEngine, *legacyProjectorMode),
-		ExecutorMode:         *executorMode,
-		SandboxURL:           *sandboxURL,
-		AllowInsecureSandbox: *allowInsecureSandbox,
-		RoutingStrategy:      *routingStrategy,
-		RiskCeiling:          *riskCeiling,
-		LatencyWeight:        *latencyWeight,
-		CostWeight:           *costWeight,
-		RiskWeight:           *riskWeight,
-		AdaptiveProposals:    *adaptiveProposals,
-		InitialProposers:     *initialProposers,
-		MinimumValid:         *minimumValid,
-		MinimumSpread:        *minimumSpread,
-		ProviderKind:         *providerKind,
-		ReplayPath:           *replayPath,
-		ExplorationEpsilon:   *explorationEpsilon,
-		OTLPEndpoint:         *otlpEndpoint,
-		TraceSampleRatio:     *traceSampleRatio,
-		ObjectiveCalibration: *objectiveCalibration,
+		ManifestPath:          *manifestPath,
+		TaskPath:              *taskPath,
+		Endpoint:              *endpoint,
+		ProjectRoot:           *projectRoot,
+		OutputPath:            *outputPath,
+		EventLogPath:          *eventLogPath,
+		SeedOverride:          *seed,
+		ProposerOverride:      *proposerCount,
+		BeamOverride:          *beamWidth,
+		PolicyEngine:          resolvePolicyEngine(*policyEngine, *legacyProjectorMode),
+		ExecutorMode:          *executorMode,
+		SandboxURL:            *sandboxURL,
+		AllowInsecureSandbox:  *allowInsecureSandbox,
+		RoutingStrategy:       *routingStrategy,
+		RiskCeiling:           *riskCeiling,
+		LatencyWeight:         *latencyWeight,
+		CostWeight:            *costWeight,
+		RiskWeight:            *riskWeight,
+		AdaptiveProposals:     *adaptiveProposals,
+		InitialProposers:      *initialProposers,
+		MinimumValid:          *minimumValid,
+		MinimumSpread:         *minimumSpread,
+		ProviderKind:          *providerKind,
+		ReplayPath:            *replayPath,
+		ExplorationEpsilon:    *explorationEpsilon,
+		OTLPEndpoint:          *otlpEndpoint,
+		TraceSampleRatio:      *traceSampleRatio,
+		ObjectiveCalibration:  *objectiveCalibration,
+		LearningMode:          *learningMode,
+		LearningArtifact:      *learningArtifact,
+		LearningRiskCeiling:   *learningRiskCeiling,
+		LearningUncertainty:   *learningUncertainty,
+		LearningFrontierLimit: *learningFrontierLimit,
 	}); err != nil {
 		log.Printf("bouncer run failed: %v", err)
 		os.Exit(1)
@@ -185,6 +221,33 @@ func run(options runOptions) (runErr error) {
 	objectiveCalibrator, err := calibration.Load(calibrationPath)
 	if err != nil {
 		return err
+	}
+	learningConfig := control.LearningConfig{
+		Mode: options.LearningMode,
+		Router: router.LearnedConfig{
+			RiskCeiling:            options.LearningRiskCeiling,
+			MaxRelativeUncertainty: options.LearningUncertainty,
+			FrontierLimit:          options.LearningFrontierLimit,
+		},
+	}
+	var learningScorer learning.Scorer
+	if options.LearningMode != "" && options.LearningMode != control.LearningDisabled {
+		learningPath := options.LearningArtifact
+		if learningPath == "" {
+			return fmt.Errorf("learning artifact is required when learning is enabled")
+		}
+		if !filepath.IsAbs(learningPath) {
+			learningPath = filepath.Join(options.ProjectRoot, learningPath)
+		}
+		learningRuntime, loadErr := learning.Load(learningPath)
+		if loadErr != nil {
+			return loadErr
+		}
+		if options.LearningMode == control.LearningActive &&
+			learningRuntime.Metadata().Provenance.Method == "hand_authored_bootstrap_not_for_promotion" {
+			return fmt.Errorf("bootstrap learning artifact is restricted to shadow mode")
+		}
+		learningScorer = learningRuntime
 	}
 	seed := manifest.Benchmark.Seed
 	if options.SeedOverride >= 0 {
@@ -325,6 +388,15 @@ func run(options runOptions) (runErr error) {
 				"policy_sha256":         policyHash,
 				"routing":               routerConfig,
 				"objective_calibration": objectiveCalibrator.Metadata(),
+				"learning": map[string]any{
+					"configuration": learningConfig,
+					"artifact": func() any {
+						if learningScorer == nil {
+							return nil
+						}
+						return learningScorer.Metadata()
+					}(),
+				},
 				"adaptive_proposals": map[string]any{
 					"enabled":        options.AdaptiveProposals,
 					"initial_count":  options.InitialProposers,
@@ -377,11 +449,13 @@ func run(options runOptions) (runErr error) {
 			ProposerCount: proposerCount,
 			Timeout:       manifest.Proposal.Timeout(),
 		},
-		Projector:    batchProjector,
-		Calibrator:   objectiveCalibrator,
-		Executor:     actionExecutor,
-		TraceSink:    traceSink,
-		RouterConfig: routerConfig,
+		Projector:      batchProjector,
+		Calibrator:     objectiveCalibrator,
+		Executor:       actionExecutor,
+		TraceSink:      traceSink,
+		RouterConfig:   routerConfig,
+		LearningScorer: learningScorer,
+		Learning:       learningConfig,
 		AdaptiveProposal: control.AdaptiveProposalConfig{
 			Enabled:       options.AdaptiveProposals,
 			InitialCount:  options.InitialProposers,
