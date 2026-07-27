@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/learning-artifact.schema.json",
+  "title": "Bouncer portable linear learning artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "feature_schema_version",
+    "created_at",
+    "provenance",
+    "confidence_multiplier",
+    "models",
+    "transition_prior"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "artifact_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "feature_schema_version": {"const": "0.1.0"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "dataset_sha256", "training_rows", "validation_rows"],
+      "properties": {
+        "method": {"type": "string", "minLength": 1},
+        "dataset_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "training_rows": {"type": "integer", "minimum": 1},
+        "validation_rows": {"type": "integer", "minimum": 0}
+      }
+    },
+    "confidence_multiplier": {"type": "number", "minimum": 0, "maximum": 10},
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["progress", "success", "latency_ms", "cost_units", "adverse_risk"],
+      "properties": {
+        "progress": {"$ref": "#/$defs/model"},
+        "success": {"$ref": "#/$defs/model"},
+        "latency_ms": {"$ref": "#/$defs/model"},
+        "cost_units": {"$ref": "#/$defs/model"},
+        "adverse_risk": {"$ref": "#/$defs/model"}
+      }
+    },
+    "transition_prior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fallback_probability", "probabilities"],
+      "properties": {
+        "fallback_probability": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "probabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["link", "intercept", "coefficients", "uncertainty"],
+      "properties": {
+        "link": {"enum": ["identity", "logit", "log1p"]},
+        "intercept": {"type": "number"},
+        "coefficients": {
+          "type": "object",
+          "additionalProperties": {"type": "number"}
+        },
+        "uncertainty": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}

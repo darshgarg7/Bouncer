@@ -1,0 +1,90 @@
+{
+  "context": {
+    "turn": 1,
+    "max_turns": 4,
+    "recent_rejections": 2,
+    "no_progress_streak": 1,
+    "previous_operation": "filesystem.read",
+    "state": {
+      "completed_operations": ["filesystem.read"],
+      "files": {"workspace/input": "data"},
+      "mutation_count": 0,
+      "benchmark_step": 1,
+      "hazard_injected": false,
+      "task_complete": false,
+      "constraint_feedback": []
+    },
+    "policy": {
+      "allowed_operation_classes": ["filesystem.read", "filesystem.write"],
+      "allowed_path_prefixes": ["workspace/"],
+      "protected_paths": [],
+      "max_mutations": 2
+    }
+  },
+  "candidate": {
+    "candidate": {
+      "candidate_id": "candidate",
+      "operation_class": "filesystem.write",
+      "tool": "write_file",
+      "target": "workspace/result.txt",
+      "arguments": {"content": "ready"},
+      "declared_dependencies": ["filesystem.read"],
+      "estimated_objectives": {
+        "latency_ms": 10,
+        "cost_units": 0.1,
+        "safety_risk": 0.1
+      }
+    },
+    "routing_objectives": {
+      "latency_ms": 12,
+      "cost_units": 0.2,
+      "safety_risk": 0.1
+    }
+  },
+  "transition_prior": {
+    "fallback_probability": 0.01,
+    "probabilities": {
+      "filesystem.read": {"filesystem.write": 0.8}
+    }
+  },
+  "expected": {
+    "argument_bytes_log1p": 2.995732273553991,
+    "argument_count": 0.6931471805599453,
+    "calibrated_cost_log1p": 0.18232155679395465,
+    "calibrated_latency_log1p": 2.5649493574615367,
+    "calibrated_safety_risk": 0.1,
+    "candidate_mutating": 1.0,
+    "completed_operation_count": 0.6931471805599453,
+    "constraint_feedback_count": 0.0,
+    "dependency_count": 0.6931471805599453,
+    "dependency_satisfaction_ratio": 1.0,
+    "file_count": 0.6931471805599453,
+    "mutation_budget_interaction": 1.0,
+    "mutation_fraction": 0.0,
+    "no_progress_streak": 0.6931471805599453,
+    "operation=command.run": 0.0,
+    "operation=filesystem.delete": 0.0,
+    "operation=filesystem.read": 0.0,
+    "operation=filesystem.write": 1.0,
+    "operation=service.deploy": 0.0,
+    "operation=state.backup": 0.0,
+    "operation=state.validate": 0.0,
+    "operation=task.complete": 0.0,
+    "previous=command.run": 0.0,
+    "previous=filesystem.delete": 0.0,
+    "previous=filesystem.read": 1.0,
+    "previous=filesystem.write": 0.0,
+    "previous=service.deploy": 0.0,
+    "previous=state.backup": 0.0,
+    "previous=state.validate": 0.0,
+    "previous=task.complete": 0.0,
+    "recent_rejection_count": 1.0986122886681098,
+    "remaining_mutation_fraction": 1.0,
+    "remaining_turn_fraction": 0.75,
+    "risk_mutation_interaction": 0.1,
+    "target_depth": 1.0986122886681098,
+    "transition_log_probability": -0.2231435513142097,
+    "transition_unseen": 0.0,
+    "turn_fraction": 0.25
+  }
+}

@@ -45,6 +45,13 @@ def main() -> None:
         default=[],
         help="additional objective-calibration artifact to validate",
     )
+    parser.add_argument(
+        "--learning-artifact",
+        type=Path,
+        action="append",
+        default=[],
+        help="additional portable learning artifact to validate",
+    )
     args = parser.parse_args()
     schema_paths = sorted((ROOT / "schemas").glob("*.schema.json"))
     for schema_path in schema_paths:
@@ -92,6 +99,12 @@ def main() -> None:
         validate(ROOT / "schemas/objective-calibration.schema.json", calibration_path)
     for calibration_path in args.objective_calibration:
         validate(ROOT / "schemas/objective-calibration.schema.json", calibration_path)
+    validate(
+        ROOT / "schemas/learning-artifact.schema.json",
+        ROOT / "configs/learning-artifact.bootstrap.json",
+    )
+    for learning_path in args.learning_artifact:
+        validate(ROOT / "schemas/learning-artifact.schema.json", learning_path)
     task_schema = ROOT / "schemas/task.schema.json"
     task_paths = sorted((ROOT / "benchmarks/tasks").glob("task-*.json"))
     if len(task_paths) != 10:

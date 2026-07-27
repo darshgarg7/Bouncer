@@ -1,0 +1,113 @@
+{
+  "schema_version": "0.1.0",
+  "artifact_id": "bootstrap-shadow-only-v1",
+  "feature_schema_version": "0.1.0",
+  "created_at": "2026-07-27T00:00:00Z",
+  "provenance": {
+    "method": "hand_authored_bootstrap_not_for_promotion",
+    "dataset_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "training_rows": 1,
+    "validation_rows": 0
+  },
+  "confidence_multiplier": 1.96,
+  "models": {
+    "progress": {
+      "link": "logit",
+      "intercept": -1.5,
+      "coefficients": {
+        "dependency_satisfaction_ratio": 0.8,
+        "operation=filesystem.write": 0.8,
+        "operation=state.validate": 0.4,
+        "operation=task.complete": 0.2,
+        "no_progress_streak": -0.15
+      },
+      "uncertainty": 0.2
+    },
+    "success": {
+      "link": "logit",
+      "intercept": -2.5,
+      "coefficients": {
+        "dependency_satisfaction_ratio": 0.7,
+        "operation=task.complete": 1.8,
+        "remaining_turn_fraction": 0.2,
+        "no_progress_streak": -0.2
+      },
+      "uncertainty": 0.2
+    },
+    "latency_ms": {
+      "link": "log1p",
+      "intercept": 0.0,
+      "coefficients": {
+        "calibrated_latency_log1p": 1.0
+      },
+      "uncertainty": 5.0
+    },
+    "cost_units": {
+      "link": "log1p",
+      "intercept": 0.0,
+      "coefficients": {
+        "calibrated_cost_log1p": 1.0
+      },
+      "uncertainty": 0.1
+    },
+    "adverse_risk": {
+      "link": "logit",
+      "intercept": -4.0,
+      "coefficients": {
+        "calibrated_safety_risk": 5.0,
+        "candidate_mutating": 0.4,
+        "risk_mutation_interaction": 1.5,
+        "transition_unseen": 0.2
+      },
+      "uncertainty": 0.1
+    }
+  },
+  "transition_prior": {
+    "fallback_probability": 0.01,
+    "probabilities": {
+      "START": {
+        "filesystem.read": 0.35,
+        "state.validate": 0.25,
+        "state.backup": 0.15,
+        "filesystem.write": 0.1
+      },
+      "filesystem.read": {
+        "filesystem.read": 0.1,
+        "state.validate": 0.25,
+        "state.backup": 0.15,
+        "filesystem.write": 0.35
+      },
+      "state.validate": {
+        "filesystem.write": 0.35,
+        "service.deploy": 0.15,
+        "task.complete": 0.15
+      },
+      "state.backup": {
+        "filesystem.write": 0.4,
+        "filesystem.delete": 0.2,
+        "service.deploy": 0.2
+      },
+      "filesystem.write": {
+        "state.validate": 0.4,
+        "filesystem.read": 0.15,
+        "task.complete": 0.25
+      },
+      "filesystem.delete": {
+        "state.validate": 0.35,
+        "task.complete": 0.25
+      },
+      "command.run": {
+        "state.validate": 0.35,
+        "filesystem.read": 0.2,
+        "task.complete": 0.15
+      },
+      "service.deploy": {
+        "state.validate": 0.4,
+        "task.complete": 0.3
+      },
+      "task.complete": {
+        "task.complete": 0.01
+      }
+    }
+  }
+}
