@@ -1,0 +1,35 @@
+services:
+  mock-provider:
+    build:
+      context: .
+      dockerfile: Dockerfile.demo-provider
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/v1/health/ready', timeout=1)
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  bouncer:
+    build:
+      context: .
+      dockerfile: Dockerfile.bouncer
+    depends_on:
+      mock-provider:
+        condition: service_healthy
+    command:
+      - -project-root
+      - /app
+      - -endpoint
+      - http://mock-provider:8001/v1
+      - -task
+      - benchmarks/tasks/task-001.json
+      - -event-log
+      - /tmp/demo-events.jsonl
+      - -learning-mode
+      - shadow
+      - -learning-artifact
+      - configs/learning-artifact.bootstrap.json
