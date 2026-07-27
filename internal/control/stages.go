@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"bouncer/internal/anomaly"
 	"bouncer/internal/benchmark"
 	"bouncer/internal/calibration"
 	"bouncer/internal/learning"
@@ -180,12 +181,15 @@ type executionStageInput struct {
 	CandidateCount        int
 	SelectedTransitionNLL float64
 	Monitor               *monitoring.Tracker
+	AnomalyConfig         AnomalyConfig
+	AnomalyScorer         anomaly.Scorer
 }
 
 type executionStageResult struct {
 	Operation        string
 	Rejections       int
 	NoProgressStreak int
+	Gated            bool
 }
 
 // executeStage applies one authorized action, observes the resulting state,
@@ -238,6 +242,38 @@ func (l Loop) executeStage(input executionStageInput) (executionStageResult, err
 	if err != nil {
 		return executionStageResult{}, fmt.Errorf("turn %d monitor outcome: %w", input.Turn, err)
 	}
+	anomalyEvidence := map[string]any{"mode": input.AnomalyConfig.Mode}
+	gated := false
+	var anomalyScoreErr error
+	if input.AnomalyConfig.Mode != AnomalyDisabled {
+		evaluation, scoreErr := input.AnomalyScorer.Score(window.Features)
+		if scoreErr != nil {
+			anomalyScoreErr = scoreErr
+			input.Result.AnomalyScoringErrors++
+			anomalyEvidence = map[string]any{
+				"mode":          input.AnomalyConfig.Mode,
+				"metadata":      input.AnomalyScorer.Metadata(),
+				"scoring_error": scoreErr.Error(),
+			}
+		} else {
+			metadata := input.AnomalyScorer.Metadata()
+			anomalyEvidence = map[string]any{
+				"mode":      input.AnomalyConfig.Mode,
+				"metadata":  metadata,
+				"score":     evaluation.Score,
+				"threshold": evaluation.Threshold,
+				"alert":     evaluation.Alert,
+			}
+			if evaluation.Alert {
+				input.Result.AnomalyAlerts++
+				if input.AnomalyConfig.Mode == AnomalyActive && !input.State.TaskComplete {
+					gated = true
+					input.Result.AnomalyGates++
+					input.Result.ExecutionGated = true
+				}
+			}
+		}
+	}
 	input.Result.MonitoringAlerts += len(window.RuleAlerts)
 	input.Result.ExecutedActions++
 	if err := l.record(stageContext, input.Result, TraceEvent{
@@ -259,15 +295,29 @@ func (l Loop) executeStage(input executionStageInput) (executionStageResult, err
 			"adverse":             input.State.HazardInjected && !hazardBefore,
 			"terminal":            input.State.TaskComplete,
 			"censored":            false,
-			"monitoring":          window,
+			"monitoring": map[string]any{
+				"features":                   window.Features,
+				"rule_alerts":                window.RuleAlerts,
+				"anomaly":                    anomalyEvidence,
+				"subsequent_execution_gated": gated,
+			},
 		},
 	}); err != nil {
 		markSpanError(span, err)
 		return executionStageResult{}, err
 	}
+	if anomalyScoreErr != nil && input.AnomalyConfig.Mode == AnomalyActive {
+		markSpanError(span, anomalyScoreErr)
+		return executionStageResult{}, fmt.Errorf(
+			"turn %d active anomaly scoring after recorded execution: %w",
+			input.Turn,
+			anomalyScoreErr,
+		)
+	}
 	return executionStageResult{
 		Operation:        input.Selection.Selected.OperationClass,
 		Rejections:       input.RejectedCandidates,
 		NoProgressStreak: window.Features.NoProgressStreak,
+		Gated:            gated,
 	}, nil
 }

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/anomaly-validation-window.schema.json",
+  "title": "Bouncer labeled anomaly-validation window",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "task_id",
+    "turn",
+    "features",
+    "rule_alerts",
+    "is_anomaly"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "turn": {"type": "integer", "minimum": 0},
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rejection_rate",
+        "retry_rate",
+        "no_progress_streak",
+        "tool_switch_rate",
+        "latency_delta_ms",
+        "transition_nll"
+      ],
+      "properties": {
+        "rejection_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "retry_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "no_progress_streak": {"type": "integer", "minimum": 0},
+        "tool_switch_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "latency_delta_ms": {"type": "number"},
+        "transition_nll": {"type": "number", "minimum": 0}
+      }
+    },
+    "rule_alerts": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "is_anomaly": {"type": "boolean"},
+    "anomaly_score": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "number", "minimum": 0, "maximum": 1}
+      ]
+    }
+  }
+}

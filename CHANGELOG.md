@@ -11,6 +11,8 @@ Versioning for published releases.
 - Portable learned-routing artifacts, trusted Go feature extraction, conservative
   outcome models, Pareto holding, and disabled/shadow/active promotion modes.
 - Offline trajectory, training, fitted-Q, bandit, and anomaly-analysis tools.
+- Portable Isolation Forest artifacts with explicit shadow and active
+  post-execution circuit-breaker modes.
 - Project history, technical article, hiring guide, compatibility policy,
   production-readiness checklist, and public roadmap.
 

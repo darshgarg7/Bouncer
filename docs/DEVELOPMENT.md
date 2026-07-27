@@ -6,7 +6,8 @@ change without crossing a trust boundary by accident.
 
 ## The shortest useful mental model
 
-Bouncer has six required stages and one optional learned-ranking stage:
+Bouncer has eight named stages, with learned ranking and statistical gating
+remaining optional:
 
 1. A provider proposes typed candidate actions.
 2. The policy evaluator rejects candidates that violate declared constraints.
@@ -14,7 +15,9 @@ Bouncer has six required stages and one optional learned-ranking stage:
 4. An optional immutable learning artifact predicts outcomes and constructs a conservative Pareto set.
 5. The router selects one admitted candidate using a named strategy.
 6. An executor applies the action to virtual or remote state.
-7. The event log records the run and verifies that it ended cleanly.
+7. Deterministic monitoring observes the verified outcome; an optional static
+   anomaly scorer may stop subsequent actions.
+8. The event log records the run and verifies that it ended cleanly.
 
 The model participates only in step 1. It never approves its own action.
 
@@ -30,7 +33,8 @@ flowchart LR
     K -->|"disabled"| D
     D --> E["Executor"]
     E --> G["State diff"]
-    G --> H["Hash-linked event log"]
+    G --> N["Optional static anomaly score"]
+    N --> H["Hash-linked event log"]
 ```
 
 ## Run one task locally
@@ -78,6 +82,7 @@ separate review process.
 | Routing | `internal/router/router.go` | Risk ceiling, ranking, strategy semantics, propensity |
 | Learned inference | `internal/learning` and `internal/router/learned.go` | Feature contract, artifact validation, uncertainty, and five-objective Pareto holding |
 | Behavior monitoring | `internal/monitoring/rules.go` | Explainable rolling telemetry alerts |
+| Static anomaly gate | `internal/anomaly` | Strict artifact loading and post-execution shadow/active scoring |
 | Execution | `internal/executor/virtual.go` | Canonical state transition and state diff |
 | Remote boundary | `internal/executor/remote.go` | Idempotency key and returned-transition validation |
 | Evidence | `internal/eventlog/jsonl.go` | Run lifecycle, sequence, hash chain, terminal event |
@@ -96,7 +101,8 @@ operation priors are engineering defaults rather than measured calibration.
 priors, vector FQE, bandit challengers, anomaly training, and the known-truth
 simulator. Start with [ML Routing Operations](ML_OPERATIONS.md) before changing
 that path. The Go/Python feature contract has one shared fixture at
-`examples/learning-feature-fixture.json`.
+`examples/learning-feature-fixture.json`; exact Isolation Forest scoring parity
+uses `examples/anomaly-score-fixture.json`.
 
 ## Where tests belong
 
@@ -114,7 +120,7 @@ make test                 # schemas, race-tested Go, and Python tests
 make lint                 # go vet, Ruff, and strict mypy
 make coverage             # current coverage ratchet
 make verify-policy-parity # Go/Python differential gate
-make fuzz-smoke           # bounded decoder and router fuzzing
+make fuzz-smoke           # bounded trust-boundary fuzzing
 ```
 
 ## Python style

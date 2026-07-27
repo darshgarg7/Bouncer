@@ -1,12 +1,32 @@
 from __future__ import annotations
 
+import io
 import json
 import math
 import random
 import unittest
+from contextlib import redirect_stderr
+from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from benchmarking.learning.anomaly import FEATURES, fit
+from jsonschema import Draft202012Validator
+
+from benchmarking.learning.anomaly import (
+    FEATURES,
+    MAX_INT64,
+    IsolationForest,
+    Node,
+    ValidationSummary,
+    build_artifact,
+    evaluate_validation,
+    fit,
+    validate_window_record,
+    vector,
+)
+from benchmarking.learning.anomaly import (
+    main as anomaly_main,
+)
 from benchmarking.learning.bandits import ConservativeLinUCB, safe_epsilon_greedy
 from benchmarking.learning.evaluate import evaluate
 from benchmarking.learning.features import FEATURE_NAMES, extract_features
@@ -163,6 +183,258 @@ class StatisticalTests(unittest.TestCase):
         self.assertGreater(result["minimum_behavior_probability"], 0)
 
 
+class AnomalyArtifactTests(unittest.TestCase):
+    def test_python_matches_cross_language_score_fixture(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        fixture = json.loads((root / "examples/anomaly-score-fixture.json").read_text())
+        artifact = fixture["artifact"]
+
+        def decode_node(value: dict[str, object]) -> Node:
+            left = value["left"]
+            right = value["right"]
+            return Node(
+                size=int(value["size"]),
+                feature=None if value["feature"] is None else int(value["feature"]),
+                split=None if value["split"] is None else float(value["split"]),
+                left=None if left is None else decode_node(left),
+                right=None if right is None else decode_node(right),
+            )
+
+        forest = IsolationForest(
+            sample_size=int(artifact["sample_size"]),
+            trees=[decode_node(tree) for tree in artifact["trees"]],
+        )
+        for case in fixture["cases"]:
+            with self.subTest(case=case["name"]):
+                score = forest.score(vector({"features": case["features"]}))
+                self.assertAlmostEqual(case["expected_score"], score, places=15)
+                self.assertEqual(case["expected_alert"], score >= artifact["threshold"])
+
+    def test_artifact_defaults_to_shadow_only(self) -> None:
+        forest = fit([[0.0] * len(FEATURES), [0.1] * len(FEATURES)], trees=2, sample_size=2)
+        artifact = build_artifact(
+            forest,
+            artifact_id="shadow-test",
+            dataset_sha256="0" * 64,
+            training_rows=2,
+            seed=42,
+            created_at=datetime(2026, 7, 27, tzinfo=UTC),
+        )
+        self.assertFalse(artifact["active_eligible"])
+        self.assertNotIn("validation", artifact["provenance"])
+        self.assertEqual(FEATURES, artifact["feature_names"])
+        self.assertEqual("2026-07-27T00:00:00Z", artifact["created_at"])
+
+    def test_active_eligibility_requires_passing_labeled_validation(self) -> None:
+        forest = separating_forest()
+        records = [anomaly_window(False, index) for index in range(10)] + [
+            anomaly_window(True, index + 10) for index in range(10)
+        ]
+        validation = evaluate_validation(
+            forest,
+            records,
+            threshold=0.6,
+            dataset_sha256="1" * 64,
+        )
+        self.assertTrue(validation.passes_active_gate())
+        artifact = build_artifact(
+            forest,
+            artifact_id="active-test",
+            dataset_sha256="0" * 64,
+            training_rows=40,
+            seed=42,
+            threshold=0.6,
+            active_eligible=True,
+            validation=validation,
+            created_at=datetime(2026, 7, 27, tzinfo=UTC),
+        )
+        self.assertTrue(artifact["active_eligible"])
+        self.assertEqual(1.0, artifact["provenance"]["validation"]["true_positive_rate"])
+        with self.assertRaisesRegex(ValueError, "requires labeled validation"):
+            build_artifact(
+                forest,
+                artifact_id="unsafe",
+                dataset_sha256="0" * 64,
+                training_rows=40,
+                seed=42,
+                active_eligible=True,
+            )
+        weak = ValidationSummary("1" * 64, 20, 10, 10, 0.5, 0.0)
+        with self.assertRaisesRegex(ValueError, "does not pass"):
+            build_artifact(
+                forest,
+                artifact_id="weak",
+                dataset_sha256="0" * 64,
+                training_rows=40,
+                seed=42,
+                active_eligible=True,
+                validation=weak,
+            )
+        reused = ValidationSummary("0" * 64, 20, 10, 10, 1.0, 0.0)
+        with self.assertRaisesRegex(ValueError, "different digests"):
+            build_artifact(
+                forest,
+                artifact_id="reused-holdout",
+                dataset_sha256="0" * 64,
+                training_rows=40,
+                seed=42,
+                active_eligible=True,
+                validation=reused,
+            )
+
+    def test_seed_is_portable_to_signed_int64(self) -> None:
+        artifact = build_artifact(
+            separating_forest(),
+            artifact_id="max-seed",
+            dataset_sha256="0" * 64,
+            training_rows=4,
+            seed=MAX_INT64,
+        )
+        self.assertEqual(MAX_INT64, artifact["provenance"]["seed"])
+        root = Path(__file__).resolve().parents[1]
+        schema = json.loads((root / "schemas/anomaly-artifact.schema.json").read_text())
+        validator = Draft202012Validator(schema)
+        self.assertEqual([], list(validator.iter_errors(artifact)))
+        oversized = dict(artifact)
+        oversized["provenance"] = dict(artifact["provenance"])
+        oversized["provenance"]["seed"] = MAX_INT64 + 1
+        self.assertTrue(list(validator.iter_errors(oversized)))
+        with self.assertRaisesRegex(ValueError, "signed 64-bit"):
+            build_artifact(
+                separating_forest(),
+                artifact_id="oversized-seed",
+                dataset_sha256="0" * 64,
+                training_rows=4,
+                seed=MAX_INT64 + 1,
+            )
+
+    def test_artifact_builder_rejects_malformed_forest_and_provenance(self) -> None:
+        malformed = IsolationForest(
+            sample_size=2,
+            trees=[Node(size=2, feature=0, split=0.5, left=Node(size=1))],
+        )
+        with self.assertRaisesRegex(ValueError, "complete leaf or branch"):
+            build_artifact(
+                malformed,
+                artifact_id="malformed",
+                dataset_sha256="0" * 64,
+                training_rows=2,
+                seed=42,
+            )
+        invalid_validation = ValidationSummary("BAD", 20, 10, 10, 1.0, 0.0)
+        with self.assertRaisesRegex(ValueError, "validation dataset_sha256"):
+            build_artifact(
+                separating_forest(),
+                artifact_id="bad-provenance",
+                dataset_sha256="0" * 64,
+                training_rows=40,
+                seed=42,
+                validation=invalid_validation,
+            )
+
+    def test_cli_emits_strict_artifact_with_source_digest(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "windows.jsonl"
+            source.write_text(
+                "\n".join(json.dumps(training_anomaly_window(index)) for index in range(4)) + "\n",
+                encoding="utf-8",
+            )
+            output = root / "forest.json"
+            anomaly_main(
+                [
+                    "--input",
+                    str(source),
+                    "--output",
+                    str(output),
+                    "--trees",
+                    "2",
+                    "--sample-size",
+                    "4",
+                ]
+            )
+            artifact = json.loads(output.read_text(encoding="utf-8"))
+            self.assertFalse(artifact["active_eligible"])
+            self.assertEqual("forest", artifact["artifact_id"])
+            self.assertEqual(4, artifact["provenance"]["training_rows"])
+
+    def test_cli_rejects_overlapping_train_validation_identities(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            training = root / "training.jsonl"
+            training.write_text(
+                "\n".join(json.dumps(training_anomaly_window(index)) for index in range(2)) + "\n",
+                encoding="utf-8",
+            )
+            validation = root / "validation.jsonl"
+            validation.write_text(
+                "\n".join(
+                    json.dumps(record)
+                    for record in (anomaly_window(True, 0), anomaly_window(False, 2))
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                anomaly_main(
+                    [
+                        "--input",
+                        str(training),
+                        "--validation-input",
+                        str(validation),
+                        "--output",
+                        str(root / "artifact.json"),
+                        "--trees",
+                        "1",
+                        "--sample-size",
+                        "2",
+                    ]
+                )
+
+    def test_validation_rejects_unlabeled_or_single_class_input(self) -> None:
+        forest = separating_forest()
+        with self.assertRaisesRegex(ValueError, "is_anomaly"):
+            evaluate_validation(
+                forest,
+                [training_anomaly_window(0)],
+                threshold=0.6,
+                dataset_sha256="1" * 64,
+            )
+        with self.assertRaisesRegex(ValueError, "both normal and anomaly"):
+            evaluate_validation(
+                forest,
+                [anomaly_window(False, 0), anomaly_window(False, 1)],
+                threshold=0.6,
+                dataset_sha256="1" * 64,
+            )
+        with self.assertRaisesRegex(ValueError, "duplicates window identity"):
+            evaluate_validation(
+                forest,
+                [anomaly_window(False, 0), anomaly_window(True, 0)],
+                threshold=0.6,
+                dataset_sha256="1" * 64,
+            )
+
+    def test_training_and_validation_windows_match_published_schemas(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        cases = (
+            ("anomaly-window.schema.json", training_anomaly_window(0), False),
+            ("anomaly-validation-window.schema.json", anomaly_window(True, 1), True),
+        )
+        for schema_name, record, labeled in cases:
+            with self.subTest(schema=schema_name):
+                schema = json.loads((root / "schemas" / schema_name).read_text())
+                validator = Draft202012Validator(schema)
+                self.assertEqual([], list(validator.iter_errors(record)))
+                validate_window_record(record, labeled=labeled)
+
+        malformed = anomaly_window(True, 2)
+        malformed["unexpected"] = True
+        self.assertTrue(list(validator.iter_errors(malformed)))
+        with self.assertRaisesRegex(ValueError, "unexpected"):
+            validate_window_record(malformed, labeled=True)
+
+
 def synthetic_trajectories() -> list[dict[str, object]]:
     trajectories: list[dict[str, object]] = []
     for run in range(4):
@@ -210,6 +482,52 @@ def feature_union(models: dict[str, object]) -> set[str]:
         if isinstance(model, dict):
             union.update(model["coefficients"])
     return union
+
+
+def separating_forest() -> IsolationForest:
+    return IsolationForest(
+        sample_size=4,
+        trees=[
+            Node(
+                size=4,
+                feature=0,
+                split=0.5,
+                left=Node(
+                    size=3,
+                    feature=2,
+                    split=2.5,
+                    left=Node(size=2),
+                    right=Node(size=1),
+                ),
+                right=Node(size=1),
+            )
+        ],
+    )
+
+
+def anomaly_window(is_anomaly: bool, index: int = 0) -> dict[str, object]:
+    return {
+        "schema_version": "0.1.0",
+        "run_id": f"anomaly-run-{index}",
+        "task_id": "anomaly-task",
+        "turn": index,
+        "features": {
+            "rejection_rate": float(is_anomaly),
+            "retry_rate": 0.0,
+            "no_progress_streak": 0,
+            "tool_switch_rate": 0.0,
+            "latency_delta_ms": 0.0,
+            "transition_nll": 0.0,
+        },
+        "rule_alerts": [],
+        "is_anomaly": is_anomaly,
+    }
+
+
+def training_anomaly_window(index: int) -> dict[str, object]:
+    record = anomaly_window(False, index)
+    del record["is_anomaly"]
+    return record
 
 
 if __name__ == "__main__":

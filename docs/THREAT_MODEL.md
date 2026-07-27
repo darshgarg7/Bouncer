@@ -78,6 +78,7 @@ Do not assume the model, executor workload, task author, or network is honest.
 | Unauthorized operation or target | canonical deterministic policy evaluated before routing and redundantly at execution | Canonical Go policy implemented; external policy audit pending |
 | Dependency bypass | versioned DAG and fail-closed dependency evaluation | Implemented; 100,000-case differential parity gate passes |
 | Objective manipulation | type-separate raw estimates, strict hashed calibration artifact, bounded inputs, operation priors, calibrated risk ceiling | Runtime boundary implemented; bootstrap uses zero model influence, empirical calibration data pending |
+| Statistical anomaly false positive, false negative, or scorer failure | immutable bounded artifact, shadow-first qualification, active-eligibility gate, and fail-closed active scoring | Mechanism implemented; checked-in artifact is shadow-only and effectiveness is unproven |
 | Duplicate side effect | durable atomic idempotency claim, cached response, and fail-closed indeterminate state | Implemented for the single reference service; distributed transactional store pending |
 | Forged executor transition | local deterministic transition verification and signed/attributable worker response | Virtual transition validation implemented; worker identity pending |
 | Evidence deletion or reordering | sequence number, previous-event hash, event hash, terminal completeness check | Sequence and hash verifier implemented; external immutable storage pending |
@@ -104,6 +105,10 @@ Do not assume the model, executor workload, task author, or network is honest.
 ## Residual risk
 
 Even a hardened sandbox does not eliminate kernel, runtime, side-channel, infrastructure, or policy-authoring risk. gVisor itself documents the continued need for host resource controls and network policy. Security claims must state the tested attacker model, runtime version, host configuration, and unresolved findings.
+
+The Isolation Forest is not a prompt-injection classifier or an authorization
+boundary. Its inputs describe a verified transition after execution, so an
+active hit can stop later actions but cannot prevent the triggering action.
 
 ## Promotion rule
 

@@ -25,7 +25,7 @@ help:
 	@echo "  demo       Run five control-boundary checks without credentials or Docker"
 	@echo "  demo-gif   Render the live demo output to docs/assets/bouncer-demo.gif"
 	@echo "  build      Build command binaries under bin/"
-	@echo "  fuzz-smoke Run short decoder and router fuzz sessions"
+	@echo "  fuzz-smoke Run short trust-boundary fuzz sessions"
 	@echo "  mutation-check  Gate critical Go packages using a separately installed mutator"
 	@echo "  lock-python  Regenerate the hash-pinned Python 3.11 development lock"
 	@echo "  evaluate-learning  Run the known-truth ML routing simulator"
@@ -83,6 +83,7 @@ fuzz-smoke:
 	go test -run '^$$' -fuzz FuzzRankNeverPanics -fuzztime "$${BOUNCER_FUZZ_TIME:-10s}" ./internal/router
 	go test -run '^$$' -fuzz FuzzVerifyNeverPanics -fuzztime "$${BOUNCER_FUZZ_TIME:-10s}" ./internal/eventlog
 	go test -run '^$$' -fuzz FuzzArtifactValidationNeverPanics -fuzztime "$${BOUNCER_FUZZ_TIME:-10s}" ./internal/learning
+	go test -run '^$$' -fuzz FuzzArtifactValidationNeverPanics -fuzztime "$${BOUNCER_FUZZ_TIME:-10s}" ./internal/anomaly
 	go test -run '^$$' -fuzz FuzzVirtualPathNormalization -fuzztime "$${BOUNCER_FUZZ_TIME:-10s}" ./internal/policy
 	go test -run '^$$' -fuzz FuzzIdempotencyCollisionRejected -fuzztime "$${BOUNCER_FUZZ_TIME:-10s}" ./internal/sandbox
 

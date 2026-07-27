@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"bouncer/internal/action"
+	"bouncer/internal/anomaly"
 	"bouncer/internal/benchmark"
 	"bouncer/internal/calibration"
 	"bouncer/internal/executor"
 	"bouncer/internal/harness"
 	"bouncer/internal/learning"
+	"bouncer/internal/monitoring"
 	"bouncer/internal/nimclient"
 	"bouncer/internal/projector"
 	"bouncer/internal/router"
@@ -30,6 +32,44 @@ type projectorFunc func(context.Context, []action.Candidate, benchmark.State, be
 type traceSinkFunc func(context.Context, TraceEvent) error
 
 type fixedLearningScorer struct{}
+
+type fixedAnomalyScorer struct {
+	evaluation anomaly.Evaluation
+	metadata   anomaly.Metadata
+	err        error
+	calls      *int
+}
+
+func (s fixedAnomalyScorer) Metadata() anomaly.Metadata {
+	return s.metadata
+}
+
+func (s fixedAnomalyScorer) Score(_ monitoring.Features) (anomaly.Evaluation, error) {
+	if s.calls != nil {
+		(*s.calls)++
+	}
+	return s.evaluation, s.err
+}
+
+func anomalyScorer(score float64, activeEligible bool, calls *int) fixedAnomalyScorer {
+	const threshold = 0.6
+	return fixedAnomalyScorer{
+		evaluation: anomaly.Evaluation{
+			Score:     score,
+			Threshold: threshold,
+			Alert:     score >= threshold,
+		},
+		metadata: anomaly.Metadata{
+			SchemaVersion:        anomaly.ArtifactSchemaVersion,
+			FeatureSchemaVersion: anomaly.FeatureSchemaVersion,
+			ArtifactID:           "control-test-anomaly",
+			ArtifactSHA256:       strings.Repeat("a", 64),
+			Threshold:            threshold,
+			ActiveEligible:       activeEligible,
+		},
+		calls: calls,
+	}
+}
 
 func (fixedLearningScorer) Metadata() learning.Metadata {
 	return learning.Metadata{
@@ -307,6 +347,189 @@ func TestActiveLearningReranksOnlyPolicyAdmittedCandidates(t *testing.T) {
 	if result.RoutingStrategy != "learned_pareto_safety_first" ||
 		result.LearningMode != LearningActive {
 		t.Fatalf("learning promotion evidence is missing: %+v", result)
+	}
+}
+
+func TestShadowAnomalyRecordsAlertWithoutChangingExecution(t *testing.T) {
+	calls := 0
+	loop := testLoop(proposerFunc(stateAwareProposer), projectorFunc(allowFirstCandidate))
+	loop.AnomalyScorer = anomalyScorer(0.8, false, &calls)
+	loop.Anomaly = AnomalyConfig{Mode: AnomalyShadow}
+	result, err := loop.Run(context.Background(), testTask(), 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Passed || result.ExecutionGated || result.AnomalyGates != 0 ||
+		result.AnomalyAlerts != 2 || calls != 2 {
+		t.Fatalf("shadow anomaly mode changed execution or evidence: %+v calls=%d", result, calls)
+	}
+	if result.AnomalyArtifact == nil || result.AnomalyArtifact.ArtifactID != "control-test-anomaly" {
+		t.Fatalf("missing anomaly artifact evidence: %+v", result.AnomalyArtifact)
+	}
+	for _, event := range result.Trace {
+		if event.EventType != "execution.completed" {
+			continue
+		}
+		monitoringEvidence, ok := event.Payload["monitoring"].(map[string]any)
+		if !ok || monitoringEvidence["subsequent_execution_gated"] != false {
+			t.Fatalf("shadow event incorrectly gated execution: %+v", event.Payload)
+		}
+	}
+}
+
+func TestActiveAnomalyStopsOnlySubsequentExecution(t *testing.T) {
+	calls := 0
+	loop := testLoop(proposerFunc(stateAwareProposer), projectorFunc(allowFirstCandidate))
+	loop.AnomalyScorer = anomalyScorer(0.8, true, &calls)
+	loop.Anomaly = AnomalyConfig{Mode: AnomalyActive}
+	result, err := loop.Run(context.Background(), testTask(), 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Passed || result.TaskComplete || !result.ExecutionGated ||
+		result.AnomalyGates != 1 || result.AnomalyAlerts != 1 ||
+		result.ExecutedActions != 1 || result.Turns != 1 || calls != 1 {
+		t.Fatalf("unexpected active anomaly result: %+v calls=%d", result, calls)
+	}
+	if result.FinalState.Files["workspace/result.txt"] != "ready" {
+		t.Fatalf("triggering action was not recorded as executed: %+v", result.FinalState)
+	}
+	if !strings.Contains(strings.Join(result.OracleFailures, " "), "active anomaly gate") {
+		t.Fatalf("missing anomaly gate failure: %v", result.OracleFailures)
+	}
+	foundGateEvidence := false
+	for _, event := range result.Trace {
+		if event.EventType != "execution.completed" {
+			continue
+		}
+		monitoringEvidence, ok := event.Payload["monitoring"].(map[string]any)
+		if ok && monitoringEvidence["subsequent_execution_gated"] == true {
+			foundGateEvidence = true
+		}
+	}
+	if !foundGateEvidence {
+		t.Fatal("active gate was not attached to the triggering execution evidence")
+	}
+}
+
+func TestActiveAnomalyRequiresEligibleArtifactBeforeProposal(t *testing.T) {
+	calls := 0
+	loop := testLoop(proposerFunc(stateAwareProposer), projectorFunc(allowFirstCandidate))
+	loop.AnomalyScorer = anomalyScorer(0.8, false, &calls)
+	loop.Anomaly = AnomalyConfig{Mode: AnomalyActive}
+	_, err := loop.Run(context.Background(), testTask(), 41)
+	if err == nil || !strings.Contains(err.Error(), "active-eligible") {
+		t.Fatalf("got error %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("anomaly scorer ran before configuration rejection: %d", calls)
+	}
+}
+
+func TestActiveAnomalyBelowThresholdContinues(t *testing.T) {
+	calls := 0
+	loop := testLoop(proposerFunc(stateAwareProposer), projectorFunc(allowFirstCandidate))
+	loop.AnomalyScorer = anomalyScorer(0.2, true, &calls)
+	loop.Anomaly = AnomalyConfig{Mode: AnomalyActive}
+	result, err := loop.Run(context.Background(), testTask(), 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Passed || result.ExecutionGated || result.AnomalyAlerts != 0 || calls != 2 {
+		t.Fatalf("below-threshold active detector changed execution: %+v calls=%d", result, calls)
+	}
+}
+
+func TestAnomalyNeverScoresPolicyRejectedCandidate(t *testing.T) {
+	rejectAll := projectorFunc(func(
+		_ context.Context,
+		candidates []action.Candidate,
+		_ benchmark.State,
+		_ benchmark.Policy,
+	) ([]projector.Result, error) {
+		results := make([]projector.Result, len(candidates))
+		for index, candidate := range candidates {
+			results[index] = projector.Result{
+				ActionID:   candidate.CandidateID,
+				Allowed:    false,
+				Projection: `<constraint_violation action_id="` + candidate.CandidateID + `" code="DENIED"/>`,
+			}
+		}
+		return results, nil
+	})
+	calls := 0
+	loop := testLoop(proposerFunc(stateAwareProposer), rejectAll)
+	loop.MaxTurns = 1
+	loop.AnomalyScorer = anomalyScorer(0.8, false, &calls)
+	loop.Anomaly = AnomalyConfig{Mode: AnomalyShadow}
+	result, err := loop.Run(context.Background(), testTask(), 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ExecutedActions != 0 || calls != 0 || result.AnomalyAlerts != 0 {
+		t.Fatalf("rejected candidate reached anomaly or execution: %+v calls=%d", result, calls)
+	}
+}
+
+func TestShadowAnomalyScoringFailureIsRecordedWithoutChangingControlFlow(t *testing.T) {
+	planned := errors.New("planned anomaly scorer failure")
+	loop := testLoop(proposerFunc(stateAwareProposer), projectorFunc(allowFirstCandidate))
+	scorer := anomalyScorer(0, false, nil)
+	scorer.err = planned
+	loop.AnomalyScorer = scorer
+	loop.Anomaly = AnomalyConfig{Mode: AnomalyShadow}
+	recorded := make([]TraceEvent, 0)
+	loop.TraceSink = traceSinkFunc(func(_ context.Context, event TraceEvent) error {
+		recorded = append(recorded, event)
+		return nil
+	})
+	result, err := loop.Run(context.Background(), testTask(), 41)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Passed || result.AnomalyScoringErrors != 2 || result.ExecutionGated {
+		t.Fatalf("shadow scoring failure changed control flow: %+v", result)
+	}
+	if len(recorded) == 0 || recorded[len(recorded)-1].EventType != "execution.completed" {
+		t.Fatalf("completed side effect was not recorded with scorer failure: %+v", recorded)
+	}
+	monitoringEvidence := recorded[len(recorded)-1].Payload["monitoring"].(map[string]any)
+	anomalyEvidence := monitoringEvidence["anomaly"].(map[string]any)
+	if anomalyEvidence["scoring_error"] != planned.Error() {
+		t.Fatalf("scoring failure evidence is missing: %+v", anomalyEvidence)
+	}
+}
+
+func TestActiveAnomalyScoringFailureRecordsExecutionThenFailsClosed(t *testing.T) {
+	planned := errors.New("planned active anomaly scorer failure")
+	loop := testLoop(proposerFunc(stateAwareProposer), projectorFunc(allowFirstCandidate))
+	scorer := anomalyScorer(0, true, nil)
+	scorer.err = planned
+	loop.AnomalyScorer = scorer
+	loop.Anomaly = AnomalyConfig{Mode: AnomalyActive}
+	recorded := make([]TraceEvent, 0)
+	loop.TraceSink = traceSinkFunc(func(_ context.Context, event TraceEvent) error {
+		recorded = append(recorded, event)
+		return nil
+	})
+	_, err := loop.Run(context.Background(), testTask(), 41)
+	if !errors.Is(err, planned) {
+		t.Fatalf("got error %v", err)
+	}
+	executions := 0
+	for _, event := range recorded {
+		if event.EventType != "execution.completed" {
+			continue
+		}
+		executions++
+		monitoringEvidence := event.Payload["monitoring"].(map[string]any)
+		anomalyEvidence := monitoringEvidence["anomaly"].(map[string]any)
+		if anomalyEvidence["scoring_error"] != planned.Error() {
+			t.Fatalf("active scoring failure evidence is missing: %+v", anomalyEvidence)
+		}
+	}
+	if executions != 1 {
+		t.Fatalf("active scoring failure allowed subsequent execution: %+v", recorded)
 	}
 }
 

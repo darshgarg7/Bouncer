@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"bouncer/internal/anomaly"
 	"bouncer/internal/benchmark"
 	"bouncer/internal/calibration"
 	"bouncer/internal/config"
@@ -107,6 +108,34 @@ func run(options runOptions) (runErr error) {
 			return fmt.Errorf("bootstrap learning artifact is restricted to shadow mode")
 		}
 		learningScorer = learningRuntime
+	}
+	anomalyMode := options.AnomalyMode
+	if anomalyMode == "" {
+		anomalyMode = control.AnomalyDisabled
+	}
+	anomalyConfig := control.AnomalyConfig{Mode: anomalyMode}
+	var anomalyScorer anomaly.Scorer
+	if anomalyMode != control.AnomalyDisabled &&
+		anomalyMode != control.AnomalyShadow && anomalyMode != control.AnomalyActive {
+		return fmt.Errorf("anomaly mode must be disabled, shadow, or active")
+	}
+	if anomalyMode != control.AnomalyDisabled {
+		anomalyPath := options.AnomalyArtifact
+		if anomalyPath == "" {
+			return fmt.Errorf("anomaly artifact is required when anomaly detection is enabled")
+		}
+		if !filepath.IsAbs(anomalyPath) {
+			anomalyPath = filepath.Join(options.ProjectRoot, anomalyPath)
+		}
+		anomalyRuntime, loadErr := anomaly.Load(anomalyPath)
+		if loadErr != nil {
+			return loadErr
+		}
+		if anomalyMode == control.AnomalyActive &&
+			!anomalyRuntime.Metadata().ActiveEligible {
+			return fmt.Errorf("anomaly artifact is restricted to shadow mode")
+		}
+		anomalyScorer = anomalyRuntime
 	}
 	seed := manifest.Benchmark.Seed
 	if options.SeedOverride >= 0 {
@@ -256,6 +285,15 @@ func run(options runOptions) (runErr error) {
 						return learningScorer.Metadata()
 					}(),
 				},
+				"anomaly": map[string]any{
+					"configuration": anomalyConfig,
+					"artifact": func() any {
+						if anomalyScorer == nil {
+							return nil
+						}
+						return anomalyScorer.Metadata()
+					}(),
+				},
 				"adaptive_proposals": map[string]any{
 					"enabled":        options.AdaptiveProposals,
 					"initial_count":  options.InitialProposers,
@@ -281,11 +319,15 @@ func run(options runOptions) (runErr error) {
 			} else if finalResult != nil {
 				eventType = "run.completed"
 				payload = map[string]any{
-					"passed":           finalResult.Passed,
-					"task_complete":    finalResult.TaskComplete,
-					"turns":            finalResult.Turns,
-					"total_tokens":     finalResult.TotalTokens,
-					"severe_mutations": finalResult.SevereMutations,
+					"passed":                 finalResult.Passed,
+					"task_complete":          finalResult.TaskComplete,
+					"turns":                  finalResult.Turns,
+					"total_tokens":           finalResult.TotalTokens,
+					"severe_mutations":       finalResult.SevereMutations,
+					"anomaly_alerts":         finalResult.AnomalyAlerts,
+					"anomaly_gates":          finalResult.AnomalyGates,
+					"anomaly_scoring_errors": finalResult.AnomalyScoringErrors,
+					"execution_gated":        finalResult.ExecutionGated,
 				}
 			}
 			if err := logger.Append(eventlog.Event{
@@ -315,6 +357,8 @@ func run(options runOptions) (runErr error) {
 		RouterConfig:   routerConfig,
 		LearningScorer: learningScorer,
 		Learning:       learningConfig,
+		AnomalyScorer:  anomalyScorer,
+		Anomaly:        anomalyConfig,
 		AdaptiveProposal: control.AdaptiveProposalConfig{
 			Enabled:       options.AdaptiveProposals,
 			InitialCount:  options.InitialProposers,

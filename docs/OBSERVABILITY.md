@@ -25,6 +25,7 @@ histogram; the dashboard does not manufacture a p95 from the current summary.
 | Token use | condition, task, model | Budget or baseline regression |
 | Constraint decisions | code, operation, task | New or rapidly increasing code |
 | Execution | backend, operation, outcome | Any unauthorized or unattributed mutation |
+| Static anomaly decisions | mode, artifact ID, alert, gate, scoring error | Any active gate or active scoring error; shadow-rate drift |
 | Task outcome | task class, policy version | Pass-rate non-inferiority breach |
 | Latency | proposal, projection, execution, end-to-end | Frozen p95 SLO breach |
 
@@ -37,6 +38,7 @@ Do not sample:
 - constraint violations;
 - selected actions;
 - execution state diffs;
+- anomaly alerts, gates, and scoring errors;
 - failed runs; or
 - human approval decisions.
 

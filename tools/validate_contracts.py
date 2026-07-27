@@ -52,6 +52,13 @@ def main() -> None:
         default=[],
         help="additional portable learning artifact to validate",
     )
+    parser.add_argument(
+        "--anomaly-artifact",
+        type=Path,
+        action="append",
+        default=[],
+        help="additional portable Isolation Forest artifact to validate",
+    )
     args = parser.parse_args()
     schema_paths = sorted((ROOT / "schemas").glob("*.schema.json"))
     for schema_path in schema_paths:
@@ -105,6 +112,12 @@ def main() -> None:
     )
     for learning_path in args.learning_artifact:
         validate(ROOT / "schemas/learning-artifact.schema.json", learning_path)
+    validate(
+        ROOT / "schemas/anomaly-artifact.schema.json",
+        ROOT / "configs/anomaly-artifact.bootstrap.json",
+    )
+    for anomaly_path in args.anomaly_artifact:
+        validate(ROOT / "schemas/anomaly-artifact.schema.json", anomaly_path)
     task_schema = ROOT / "schemas/task.schema.json"
     task_paths = sorted((ROOT / "benchmarks/tasks").glob("task-*.json"))
     if len(task_paths) != 10:

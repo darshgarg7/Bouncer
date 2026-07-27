@@ -42,6 +42,8 @@ type runOptions struct {
 	LearningRiskCeiling   float64
 	LearningUncertainty   float64
 	LearningFrontierLimit int
+	AnomalyMode           string
+	AnomalyArtifact       string
 }
 
 func parseOptions(arguments []string) (runOptions, error) {
@@ -91,6 +93,8 @@ func parseOptions(arguments []string) (runOptions, error) {
 	flags.Float64Var(&options.LearningRiskCeiling, "learning-risk-ceiling", 0.25, "maximum conservative learned adverse risk in [0,1]")
 	flags.Float64Var(&options.LearningUncertainty, "learning-max-relative-uncertainty", 0.5, "maximum relative learned uncertainty")
 	flags.IntVar(&options.LearningFrontierLimit, "learning-frontier-limit", 16, "maximum learned Pareto-front candidates")
+	flags.StringVar(&options.AnomalyMode, "anomaly-mode", control.AnomalyDisabled, "static anomaly circuit breaker: disabled, shadow, or active")
+	flags.StringVar(&options.AnomalyArtifact, "anomaly-artifact", "configs/anomaly-artifact.bootstrap.json", "immutable Isolation Forest artifact; bootstrap is shadow-only")
 	if err := flags.Parse(arguments); err != nil {
 		return runOptions{}, err
 	}

@@ -1,4 +1,6 @@
 // Package monitoring implements deterministic runtime behavior monitors.
-// Statistical anomaly models consume the same windows offline and begin in
-// shadow mode; these rules remain the explainable first line of detection.
+// Immutable statistical anomaly models consume the same windows after verified
+// execution. They begin in shadow mode and may circuit-break subsequent actions
+// only through an independently promoted artifact; these rules remain separate
+// and explainable.
 package monitoring

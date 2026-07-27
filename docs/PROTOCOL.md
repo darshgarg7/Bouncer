@@ -5,6 +5,9 @@ Bouncer's action, task, manifest, and remote-execution protocol is `0.1.0`. The 
 ## Source schemas
 
 - [`schemas/action.schema.json`](../schemas/action.schema.json)
+- [`schemas/anomaly-artifact.schema.json`](../schemas/anomaly-artifact.schema.json)
+- [`schemas/anomaly-validation-window.schema.json`](../schemas/anomaly-validation-window.schema.json)
+- [`schemas/anomaly-window.schema.json`](../schemas/anomaly-window.schema.json)
 - [`schemas/beam.schema.json`](../schemas/beam.schema.json)
 - [`schemas/event.schema.json`](../schemas/event.schema.json)
 - [`schemas/objective-calibration.schema.json`](../schemas/objective-calibration.schema.json)
@@ -13,6 +16,30 @@ Bouncer's action, task, manifest, and remote-execution protocol is `0.1.0`. The 
 - [`schemas/task.schema.json`](../schemas/task.schema.json)
 
 Run `make validate-contracts` after changing a schema or fixture.
+
+## Static anomaly decision
+
+An anomaly artifact fixes the six-feature order, tree ensemble, threshold,
+training and validation provenance, and active-eligibility bit. It is loaded
+strictly and hashed before proposals begin. `disabled` performs no scoring;
+`shadow` records a threshold crossing; `active` stops the run before any later
+action when `score >= threshold`.
+
+Training telemetry uses `anomaly-window.schema.json`. Labeled promotion data
+uses the stricter `anomaly-validation-window.schema.json`; the producer rejects
+duplicate run/task/turn identities and declared identity overlap across the two
+inputs.
+
+The decision is nested in the triggering `execution.completed` event together
+with `subsequent_execution_gated`. Because progress and latency are observed
+outcomes, the triggering action has already executed. Calling this a
+pre-execution detector or prompt-injection classifier is incorrect. A scoring
+failure is also attached to that completed transition. It is observational in
+`shadow` mode; in `active` mode it fails the run before another action.
+
+An active threshold crossing is a controlled abstention: the lifecycle ends in
+`run.completed` with `passed: false` and nonzero anomaly-gate counters. An
+active scoring failure is an implementation failure and ends in `run.failed`.
 
 ## Remote execution
 

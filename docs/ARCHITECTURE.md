@@ -15,6 +15,9 @@ This document describes the implemented system. “Implemented” does not imply
 5. An execution response is accepted only if it matches the selected action's deterministic transition contract.
 6. Every selection policy has explicit semantics and a logged behavior probability.
 7. Statistical analysis is offline and cannot add permissions.
+8. Runtime anomaly scoring observes verified outcomes; active mode is a
+   circuit breaker for subsequent actions, not authorization for or prevention
+   of the triggering action.
 
 ## Runtime topology
 
@@ -47,7 +50,11 @@ flowchart LR
         S --> I["Durable idempotency store"]
         S --> W["Virtual or Linux rooted backend"]
         W --> O["Observed state diff"]
-        O --> L
+        O --> A["Static anomaly scorer"]
+        A -->|"shadow"| L
+        A -->|"active threshold hit"| B["Stop subsequent execution"]
+        A -->|"below threshold"| L
+        B --> H
     end
 
     L --> H[("Monotonic hash-chained events")]
@@ -65,6 +72,7 @@ The default proposal budget is one proposer returning one action because it won 
 | Go policy | Declared operation, path, dependency, protection, and mutation rules | Undeclared environmental facts |
 | Objective calibrator | Bounding and transforming predictions under a hashed artifact | Claiming bootstrap priors are measured or allowing an action |
 | Learned scorer | Predicting five outcomes for policy-admitted candidates under a validated artifact | Adding permissions, overriding a rejection, or treating bootstrap predictions as evidence |
+| Static anomaly scorer | Scoring a verified post-execution telemetry window under an immutable threshold | Preventing the triggering action, identifying prompt injection, or adding permissions |
 | Router | Reproducing the configured choice among admitted, scored candidates | Reading raw provider estimates or authorizing an action |
 | Remote gateway | Protocol authentication and response binding | General operating-system containment |
 | Rooted backend | Narrow Linux filesystem mediation | Arbitrary commands, arbitrary network tools, or a formal isolation proof |
@@ -142,6 +150,24 @@ The hand-authored bootstrap learning artifact is restricted to shadow mode.
 Learned artifacts are trained offline, loaded immutably, hashed, and never
 updated within a run.
 
+### Static anomaly circuit breaker
+
+The optional Isolation Forest runtime is independently configured as
+`disabled`, `shadow`, or `active`. It strictly loads a frozen tree ensemble,
+feature order, threshold, provenance, and artifact digest. Shadow mode records
+threshold crossings without affecting the run. Active mode requires an
+artifact explicitly marked active-eligible from labeled validation data.
+
+The six frozen monitoring features are rejection rate, retry rate, no-progress
+streak, tool-switch rate, latency delta, and transition negative
+log-likelihood. Progress is represented indirectly through the no-progress
+streak. These features exist only after an authorized action has executed and
+its transition has been verified. Consequently, a threshold hit records the
+triggering
+`execution.completed` event and prevents later actions. It does not claim that
+the triggering action was blocked. Rule-based monitoring alerts remain
+separate from statistical anomaly decisions.
+
 ## Execution plane
 
 The virtual executor defines the typed state-transition contract. Remote execution sends the state, policy, candidate, and SHA-256 idempotency key to `/v1/execute`. The sandbox:
@@ -176,6 +202,12 @@ OpenTelemetry spans cover proposal, projection, routing, and execution. W3C trac
 - A failed proposer fails its requested range.
 - Missing or invalid objective calibration fails the run before routing.
 - Policy or persistence errors fail closed.
+- Missing or malformed anomaly artifacts, and ineligible active artifacts, fail
+  before proposal. Post-execution scoring failures are recorded with the
+  completed transition; shadow mode continues observing, while active mode
+  fails closed before another action.
+- An active anomaly threshold hit terminates the run before another action;
+  shadow hits never change execution.
 - No valid candidate causes canonical feedback and replanning, never fallback execution.
 - A mismatched sandbox response cannot update caller state.
 - A corrupt idempotency record or event link is an error, not a cache miss.

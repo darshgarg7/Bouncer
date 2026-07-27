@@ -8,6 +8,7 @@
 | `internal/benchmark` | Typed tasks and virtual state | Standard library only |
 | `internal/policy` | Canonical authorization | Action and benchmark contracts |
 | `internal/calibration` | Trusted routing-objective derivation | Action contract |
+| `internal/anomaly` | Strict Isolation Forest artifacts and post-execution scoring | Monitoring feature contract |
 | `internal/learning` | Portable outcome inference | Admitted action and typed state contracts |
 | `internal/router` | Baseline and learned selection | Action, calibration output, learning predictions |
 | `internal/executor` | State mutation and transition validation | Action and benchmark contracts |

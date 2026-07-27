@@ -1,0 +1,99 @@
+{
+  "artifact": {
+    "schema_version": "0.1.0",
+    "artifact_id": "cross-language-score-fixture-v1",
+    "feature_schema_version": "0.1.0",
+    "feature_names": [
+      "rejection_rate",
+      "retry_rate",
+      "no_progress_streak",
+      "tool_switch_rate",
+      "latency_delta_ms",
+      "transition_nll"
+    ],
+    "created_at": "2026-07-27T00:00:00Z",
+    "provenance": {
+      "method": "cross_language_test_fixture",
+      "dataset_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "training_rows": 4,
+      "seed": 42
+    },
+    "threshold": 0.65,
+    "active_eligible": false,
+    "sample_size": 4,
+    "trees": [
+      {
+        "size": 4,
+        "feature": 0,
+        "split": 0.5,
+        "left": {
+          "size": 3,
+          "feature": 2,
+          "split": 2.5,
+          "left": {
+            "size": 2,
+            "feature": null,
+            "split": null,
+            "left": null,
+            "right": null
+          },
+          "right": {
+            "size": 1,
+            "feature": null,
+            "split": null,
+            "left": null,
+            "right": null
+          }
+        },
+        "right": {
+          "size": 1,
+          "feature": null,
+          "split": null,
+          "left": null,
+          "right": null
+        }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "normal",
+      "features": {
+        "rejection_rate": 0,
+        "retry_rate": 0,
+        "no_progress_streak": 0,
+        "tool_switch_rate": 0,
+        "latency_delta_ms": 0,
+        "transition_nll": 0
+      },
+      "expected_score": 0.32529680764347629,
+      "expected_alert": false
+    },
+    {
+      "name": "rejection-outlier",
+      "features": {
+        "rejection_rate": 1,
+        "retry_rate": 0,
+        "no_progress_streak": 0,
+        "tool_switch_rate": 0,
+        "latency_delta_ms": 0,
+        "transition_nll": 0
+      },
+      "expected_score": 0.68774366777840634,
+      "expected_alert": true
+    },
+    {
+      "name": "no-progress-outlier",
+      "features": {
+        "rejection_rate": 0,
+        "retry_rate": 0,
+        "no_progress_streak": 3,
+        "tool_switch_rate": 0,
+        "latency_delta_ms": 0,
+        "transition_nll": 0
+      },
+      "expected_score": 0.47299135256929498,
+      "expected_alert": false
+    }
+  ]
+}

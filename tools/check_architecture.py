@@ -28,6 +28,15 @@ FORBIDDEN: dict[str, set[str]] = {
         "bouncer/internal/control",
         "bouncer/internal/learning",
     },
+    "bouncer/internal/anomaly": {
+        "bouncer/internal/action",
+        "bouncer/internal/policy",
+        "bouncer/internal/router",
+        "bouncer/internal/executor",
+        "bouncer/internal/control",
+        "bouncer/internal/learning",
+        "bouncer/internal/nimclient",
+    },
     "bouncer/internal/learning": {
         "bouncer/internal/policy",
         "bouncer/internal/executor",

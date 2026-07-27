@@ -9,21 +9,23 @@ This document outlines the architecture for extending Bouncer from a determinist
 
 Implemented:
 
-- strict schemas for decisions, measured outcomes, trajectories, learning artifacts, and anomaly windows;
+- strict schemas for decisions, measured outcomes, trajectories, learning artifacts, and unlabeled/labeled anomaly windows;
 - deterministic Go feature extraction and portable generalized-linear inference;
 - independent conservative estimates for progress, success, latency, cost, and adverse risk;
 - uncertainty/risk pruning, five-objective Pareto holding, frontier crowding limits, and safety-first selection;
 - runtime `disabled`, `shadow`, and fail-closed `active` modes;
 - exact behavior-probability logging and trajectory construction;
 - trajectory-held-out supervised training, a smoothed Markov prior, and fixed-policy vector FQE;
-- deterministic monitoring rules and offline Isolation Forest training; and
+- deterministic monitoring rules, portable Isolation Forest inference, and
+  disabled/shadow/active post-execution circuit-breaker modes; and
 - offline safe epsilon-greedy, conservative LinUCB, and Linear Thompson Sampling challengers.
 
 Not promoted:
 
 - the bootstrap learning artifact is hand-authored and shadow-only;
 - realized cost is explicitly censored until the executor provides trusted billing data;
-- statistical anomaly scores do not block execution;
+- the checked-in anomaly artifact is shadow-only; active eligibility still
+  requires labeled held-out validation and operational qualification;
 - contextual bandits are not connected to live selection; and
 - active routing still requires held-out evaluation, OPE support, latency qualification, and a canary decision.
 
@@ -92,7 +94,7 @@ Before training any model, specify the schema definitions and reward bounds:
 *   [x] Define the state, action, next-state, reward, terminal-state, and horizon contracts.
 *   [x] Specify exactly which actions are eligible for ML ranking.
 *   [x] Establish that policy rejection always precedes ML scoring.
-*   [ ] Define trusted measurements for latency, cost, progress, success, and adverse outcomes. Latency, progress, success, and new adverse incidents are measured; realized cost awaits an executor billing adapter.
+*   [ ] Define trusted measurements for latency, cost, progress, success, and adverse outcomes. Latency, progress, success, and new adverse incidents are measured; realized execution cost remains censored until a genuinely metered backend can issue idempotency-bound receipts. Provider token spend is a separate run-level quantity.
 *   [x] Decide how missing, censored, and delayed outcomes are represented.
 *   [x] Version the feature schema, reward definition, policy version, and learning artifact.
 *   [x] Start with a finite horizon and $\gamma=1$; introduce discounting only if experiments justify it.
@@ -110,7 +112,7 @@ To enable off-policy learning, every routing decision must be reconstructable fr
 *   [x] Log the selected candidate.
 *   [x] Log the exact behavior probability or propensity.
 *   [x] Log version digests of policy, feature, calibration, transition, and model artifacts.
-*   [ ] Log immediate measured outcomes (latency, cost, progress). Cost is deliberately censored until a trusted adapter exists.
+*   [ ] Log immediate measured outcomes (latency, cost, progress). Execution cost is deliberately censored until a metered backend exists; a future frozen-price provider ledger must not be relabeled as action cost.
 *   [x] Log delayed task-level outcomes (final success/failure).
 *   [x] Log verified next-state references.
 *   [x] Log explicit missingness and censoring markers.
@@ -224,7 +226,7 @@ The routing pipeline enforces a strict execution sequence:
 ### Step 9: Multi-Layer Monitoring
 Implement two distinct layers of telemetry defense:
 1.  **Deterministic Rules**: Detect repeated policy rejections, no-progress loops, excessive retries, tool alternation, and hash-chain failures.
-2.  **Statistical Anomaly Model**: Train an Isolation Forest over rolling telemetry windows (event proportions, rejection rates, no-progress streaks, latency deltas). Run in shadow mode first.
+2.  **Statistical Anomaly Model**: Train an Isolation Forest over rolling telemetry windows (event proportions, rejection rates, no-progress streaks, latency deltas). The portable Go runtime now supports disabled, shadow, and active post-execution modes; the checked-in artifact remains shadow-only pending held-out qualification.
 
 Promotion path:
 $$\text{Offline evaluation} \longrightarrow \text{Shadow alerts} \longrightarrow \text{Alerts visible to operator} \longrightarrow \text{Abstention gate}$$
@@ -250,9 +252,12 @@ schemas/
   measured-action-outcome.schema.json
   completed-trajectory.schema.json
   learning-artifact.schema.json
+  anomaly-artifact.schema.json
+  anomaly-validation-window.schema.json
   anomaly-window.schema.json
 
 internal/
+  anomaly/
   learning/
     doc.go
     types.go

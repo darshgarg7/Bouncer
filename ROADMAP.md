@@ -10,6 +10,7 @@ Roadmap items are bounded evidence milestones, not promises of production status
 - [x] Source-bound synthetic studies and honest hosted connectivity pilot.
 - [x] Credential-free live demo and publication audit.
 - [x] Shadow-gated learned-routing substrate.
+- [x] Static anomaly scoring with explicit shadow and active circuit-breaker modes.
 - [ ] Publish signed release artifacts after GitHub infrastructure is configured.
 
 ## v0.2 — External evaluation
@@ -18,6 +19,10 @@ Roadmap items are bounded evidence milestones, not promises of production status
 - [ ] Integrate one realistic task benchmark with equal-permission baselines.
 - [ ] Run multiple model families and seeds with uncertainty intervals.
 - [ ] Publish negative results and a fully reproducible evaluation bundle.
+- [ ] Qualify an active anomaly artifact on labeled held-out benign and adverse
+  windows; the checked-in bootstrap remains shadow-only.
+- [ ] Add a frozen-price provider-cost ledger when paid comparative studies
+  begin; keep proposal spend separate from metered execution cost.
 
 ## v0.3 — Execution qualification
 

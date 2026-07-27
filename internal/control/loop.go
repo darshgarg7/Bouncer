@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"bouncer/internal/action"
+	"bouncer/internal/anomaly"
 	"bouncer/internal/benchmark"
 	"bouncer/internal/calibration"
 	"bouncer/internal/executor"
@@ -36,6 +37,8 @@ type Loop struct {
 	RouterConfig     router.Config
 	LearningScorer   learning.Scorer
 	Learning         LearningConfig
+	AnomalyScorer    anomaly.Scorer
+	Anomaly          AnomalyConfig
 	Monitoring       monitoring.Config
 	AdaptiveProposal AdaptiveProposalConfig
 	MaxTurns         int
@@ -45,6 +48,9 @@ const (
 	LearningDisabled = "disabled"
 	LearningShadow   = "shadow"
 	LearningActive   = "active"
+	AnomalyDisabled  = "disabled"
+	AnomalyShadow    = "shadow"
+	AnomalyActive    = "active"
 )
 
 // LearningConfig controls promotion independently from the immutable model.
@@ -72,6 +78,33 @@ func (c LearningConfig) validate(scorer learning.Scorer) error {
 	}
 	if err := c.Router.Validate(); err != nil {
 		return fmt.Errorf("learning router configuration: %w", err)
+	}
+	return nil
+}
+
+// AnomalyConfig controls an immutable post-execution anomaly circuit breaker.
+// Active mode can stop subsequent actions, but it never authorizes an action or
+// retroactively claims that the triggering action was blocked.
+type AnomalyConfig struct {
+	Mode string `json:"mode"`
+}
+
+func (c AnomalyConfig) withDefaults() AnomalyConfig {
+	if c.Mode == "" {
+		c.Mode = AnomalyDisabled
+	}
+	return c
+}
+
+func (c AnomalyConfig) validate(scorer anomaly.Scorer) error {
+	if c.Mode != AnomalyDisabled && c.Mode != AnomalyShadow && c.Mode != AnomalyActive {
+		return fmt.Errorf("anomaly mode must be disabled, shadow, or active")
+	}
+	if c.Mode != AnomalyDisabled && scorer == nil {
+		return fmt.Errorf("anomaly mode %s requires a scorer", c.Mode)
+	}
+	if c.Mode == AnomalyActive && !scorer.Metadata().ActiveEligible {
+		return fmt.Errorf("active anomaly mode requires an active-eligible artifact")
 	}
 	return nil
 }
@@ -114,6 +147,12 @@ type Result struct {
 	LearningMode         string               `json:"learning_mode"`
 	LearningArtifact     *learning.Metadata   `json:"learning_artifact,omitempty"`
 	MonitoringAlerts     int                  `json:"monitoring_alerts"`
+	AnomalyMode          string               `json:"anomaly_mode"`
+	AnomalyArtifact      *anomaly.Metadata    `json:"anomaly_artifact,omitempty"`
+	AnomalyAlerts        int                  `json:"anomaly_alerts"`
+	AnomalyGates         int                  `json:"anomaly_gates"`
+	AnomalyScoringErrors int                  `json:"anomaly_scoring_errors"`
+	ExecutionGated       bool                 `json:"execution_gated"`
 	ObjectiveCalibration calibration.Metadata `json:"objective_calibration"`
 	AdaptiveProposals    bool                 `json:"adaptive_proposals"`
 	ProposalExpansions   int                  `json:"proposal_expansions"`
@@ -155,6 +194,10 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 	if err := learningConfig.validate(l.LearningScorer); err != nil {
 		return Result{}, err
 	}
+	anomalyConfig := l.Anomaly.withDefaults()
+	if err := anomalyConfig.validate(l.AnomalyScorer); err != nil {
+		return Result{}, err
+	}
 	monitor, err := monitoring.New(l.Monitoring)
 	if err != nil {
 		return Result{}, fmt.Errorf("control loop monitoring configuration: %w", err)
@@ -176,6 +219,7 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 		OracleFailures:       []string{},
 		RoutingStrategy:      routerConfig.Strategy,
 		LearningMode:         learningConfig.Mode,
+		AnomalyMode:          anomalyConfig.Mode,
 		ObjectiveCalibration: l.Calibrator.Metadata(),
 		AdaptiveProposals:    adaptive.Enabled,
 		FinalState:           state,
@@ -184,6 +228,10 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 	if l.LearningScorer != nil {
 		metadata := l.LearningScorer.Metadata()
 		result.LearningArtifact = &metadata
+	}
+	if l.AnomalyScorer != nil {
+		metadata := l.AnomalyScorer.Metadata()
+		result.AnomalyArtifact = &metadata
 	}
 	previousOperation := ""
 	recentRejections := 0
@@ -334,6 +382,8 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 			CandidateCount:        turnCandidateCount,
 			SelectedTransitionNLL: routingStage.SelectedTransitionNLL,
 			Monitor:               monitor,
+			AnomalyConfig:         anomalyConfig,
+			AnomalyScorer:         l.AnomalyScorer,
 		})
 		if err != nil {
 			return Result{}, err
@@ -341,6 +391,9 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 		previousOperation = executionStage.Operation
 		recentRejections = executionStage.Rejections
 		noProgressStreak = executionStage.NoProgressStreak
+		if executionStage.Gated {
+			break
+		}
 	}
 
 	oracle := task.Evaluate(state)
@@ -349,6 +402,12 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 	result.OracleFailures = oracle.Failures
 	if oracle.Passed && !state.TaskComplete {
 		result.OracleFailures = append(result.OracleFailures, "task did not emit task.complete")
+	}
+	if result.ExecutionGated {
+		result.OracleFailures = append(
+			result.OracleFailures,
+			"execution stopped by active anomaly gate",
+		)
 	}
 	result.FinalState = state
 	result.DurationMS = time.Since(started).Milliseconds()

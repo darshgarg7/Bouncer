@@ -20,7 +20,8 @@ func TestParseOptionsUsesSafeDefaults(t *testing.T) {
 	}
 	if options.ProviderKind != provider.KindOpenAICompatible ||
 		options.RoutingStrategy != router.StrategyLexicographic ||
-		options.LearningMode != control.LearningDisabled {
+		options.LearningMode != control.LearningDisabled ||
+		options.AnomalyMode != control.AnomalyDisabled {
 		t.Fatalf("unexpected provider/routing defaults: %+v", options)
 	}
 }
@@ -30,13 +31,16 @@ func TestParseOptionsPreservesExplicitOverrides(t *testing.T) {
 		"-provider", "recorded",
 		"-replay-file", "fixture.json",
 		"-learning-mode", "shadow",
+		"-anomaly-mode", "shadow",
+		"-anomaly-artifact", "anomaly.json",
 		"-beam-width", "3",
 	})
 	if err != nil {
 		t.Fatalf("parseOptions returned %v", err)
 	}
 	if options.ProviderKind != "recorded" || options.ReplayPath != "fixture.json" ||
-		options.LearningMode != "shadow" || options.BeamOverride != 3 {
+		options.LearningMode != "shadow" || options.AnomalyMode != "shadow" ||
+		options.AnomalyArtifact != "anomaly.json" || options.BeamOverride != 3 {
 		t.Fatalf("explicit overrides were not retained: %+v", options)
 	}
 }

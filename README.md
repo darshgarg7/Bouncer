@@ -80,7 +80,10 @@ flowchart LR
     P -->|"admitted set"| R["Calibrated router"]
     R --> E["Bounded executor"]
     E --> V["Observed state diff"]
-    V --> L[("Hash-chained run log")]
+    V --> N["Static anomaly score"]
+    N -->|"shadow or below threshold"| L[("Hash-chained run log")]
+    N -->|"active threshold hit"| G["Stop subsequent actions"]
+    G --> L
     R --> L
     P --> L
     L --> O["Offline evaluation"]
@@ -97,6 +100,7 @@ research stack:
 | Objective trust | `internal/calibration` | Provider estimates have zero influence in the bootstrap artifact |
 | Routing | `internal/router` | Selects only from policy-admitted candidates |
 | Execution | `internal/executor`, `internal/sandbox` | Transition verification, rooted access, and idempotency records |
+| Post-execution circuit breaker | `internal/monitoring`, `internal/anomaly` | Immutable anomaly scoring can stop later actions but cannot undo the triggering transition |
 | Evidence | `internal/eventlog` | One run identity, monotonic sequence, complete lifecycle, linked hashes |
 
 Read the [system-design walkthrough](docs/SYSTEM_DESIGN_WALKTHROUGH.md) for the
@@ -141,13 +145,19 @@ See the [threat model](docs/THREAT_MODEL.md), [protocol](docs/PROTOCOL.md), and
 
 Bouncer includes portable generalized-linear outcome models, conservative
 five-objective Pareto holding, shadow/active promotion modes, trajectory
-builders, fitted-Q evaluation, bandit challengers, and anomaly telemetry.
-Authorization still happens first.
+builders, fitted-Q evaluation, bandit challengers, and an immutable Isolation
+Forest circuit breaker. Authorization still happens first.
 
 The checked-in learning artifact is a hand-authored **shadow-only wiring
 fixture**. The CLI refuses to activate it. The implementation proves that the
 mechanism is wired and conformance-tested; it does not prove improved real-task
 outcomes.
+
+Static anomaly detection is also disabled by default. Shadow mode records when
+the frozen detector would stop a run. Active mode can stop only **subsequent**
+actions after scoring a verified execution window; it cannot retroactively
+block the action that produced that window. The checked-in anomaly artifact is
+shadow-only, and this mechanism is not evidence of prompt-injection detection.
 
 Start with [ML Routing Operations](docs/ML_OPERATIONS.md) for commands and
 [ML Implementation Plan](docs/ML_IMPLEMENTATION_PLAN.md) for theory and
@@ -177,9 +187,9 @@ without evidence regeneration.
 
 Current local quality baseline:
 
-- 42 Python tests and all Go tests with the race detector;
-- 82.2% overall Go coverage;
-- 92.9% policy, 91.1% router, and 94.1% executor coverage; and
+- 51 Python tests and all Go tests with the race detector;
+- 83.0% overall Go coverage;
+- 92.9% policy, 91.1% router, 94.1% executor, and 90.8% anomaly-runtime coverage; and
 - both production container images build successfully.
 
 See [Development](docs/DEVELOPMENT.md), [Contributing](CONTRIBUTING.md), and

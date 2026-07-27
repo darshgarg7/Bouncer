@@ -93,9 +93,17 @@ dependency.
 The existing executor does not return a trustworthy realized monetary or tool
 charge. Runtime logs therefore store `cost_units: null` with
 `cost_censored: true`. The trainer will not pretend the calibrated routing
-estimate is a measured label. Until an executor billing adapter is added, the
-cost model retains that calibrated estimate with deliberately high uncertainty;
-the normal active uncertainty gate should reject it.
+estimate is a measured label. A generic billing interface is intentionally
+deferred until a genuinely metered executor can return idempotency-bound
+receipts; emitting zero or allocated mock charges would weaken this boundary.
+
+Provider proposal spend is different: it is incurred before selection and may
+be shared by a whole beam. A future paid-study ledger may apply a frozen, hashed
+price catalog to provider-reported usage and label the result
+`calculated_list_price`. It must remain run-level accounting, not an automatic
+execution-cost training label. The cost model therefore retains its calibrated
+estimate with high uncertainty, and normal active uncertainty gates should
+reject it.
 
 ## 4. Evaluate sequential value and policy support
 
@@ -119,7 +127,7 @@ production policy is better. Promotion requires held-out real-task results,
 adequate action support, stable importance weights, calibrated uncertainty,
 and non-inferior pass and adverse-event rates.
 
-## 5. Train monitoring in shadow mode
+## 5. Train the static anomaly model
 
 Deterministic runtime rules already detect rejection bursts, no-progress loops,
 mutation-budget exhaustion, and repeated tool alternation. Export the
@@ -129,13 +137,76 @@ then fit the background Isolation Forest:
 ```bash
 .venv/bin/python -m benchmarking.learning.anomaly \
   --input benchmarks/results/ml/anomaly-windows.jsonl \
-  --output benchmarks/results/ml/isolation-forest-v1.json
+  --output benchmarks/results/ml/isolation-forest-v1.json \
+  --artifact-id isolation-forest-v1 \
+  --threshold 0.65
+
+.venv/bin/python tools/validate_contracts.py \
+  --anomaly-artifact benchmarks/results/ml/isolation-forest-v1.json
 ```
 
-Isolation scores remain offline/shadow evidence. They do not authorize actions
-and are not described as proof of prompt-injection detection.
+The trainer freezes the feature order, trees, threshold, source-data digest,
+seed, and creation time into a portable artifact. It emits a shadow-only
+artifact unless a separate labeled holdout is supplied. Start the runtime in
+shadow mode:
 
-## 6. Promote deliberately
+```bash
+bin/bouncer-run \
+  -manifest configs/run-manifest.local.json \
+  -task benchmarks/tasks/task-001.json \
+  -anomaly-mode shadow \
+  -anomaly-artifact benchmarks/results/ml/isolation-forest-v1.json \
+  -event-log benchmarks/results/ml/anomaly-shadow-task-001-seed-42.jsonl
+```
+
+Shadow threshold crossings and scoring errors are recorded without changing
+execution. The checked-in bootstrap artifact is only a wiring fixture. Neither
+it nor a trained artifact is evidence of prompt-injection detection.
+
+## 6. Qualify and activate the anomaly circuit breaker
+
+Training rows must satisfy `anomaly-window.schema.json`; active eligibility
+requires a JSONL holdout satisfying
+`anomaly-validation-window.schema.json`, including run/task/turn identity and a
+boolean `is_anomaly`. The trainer rejects duplicate identities, declared
+identity overlap between training and validation, and identical source digests.
+The frozen minimum gate is 20 validation rows, at least five rows per class,
+true-positive rate at least 0.80, and false-positive rate at most 0.05:
+
+```bash
+.venv/bin/python -m benchmarking.learning.anomaly \
+  --input benchmarks/results/ml/anomaly-train-windows.jsonl \
+  --validation-input benchmarks/results/ml/anomaly-validation-windows.jsonl \
+  --output benchmarks/results/ml/isolation-forest-v1-active.json \
+  --artifact-id isolation-forest-v1-active \
+  --threshold 0.65 \
+  --active-eligible
+
+bin/bouncer-run \
+  -manifest configs/run-manifest.local.json \
+  -task benchmarks/tasks/task-001.json \
+  -anomaly-mode active \
+  -anomaly-artifact benchmarks/results/ml/isolation-forest-v1-active.json \
+  -event-log benchmarks/results/ml/anomaly-active-task-001-seed-42.jsonl
+```
+
+The CLI strictly reloads the artifact and rechecks eligibility before any
+provider request. At runtime, ordering is fixed: policy admission, routing,
+execution, independent transition verification, feature observation, anomaly
+scoring, and then—on a threshold crossing—stopping all subsequent execution.
+The triggering action has already executed. An active scoring error is recorded
+with that transition and then fails closed before another action.
+
+`active_eligible` is reviewed local provenance, not a signature or independent
+certification. Identity and digest checks cannot detect copied rows whose
+identities were rewritten, or establish label quality.
+
+Two current feature limitations matter during qualification: `retry_rate` is
+zero until attempt-level retry telemetry is connected, and `transition_nll` is
+zero unless learned transition scoring is enabled. Do not infer performance
+for those signals from the mechanism tests.
+
+## 7. Promote learned routing deliberately
 
 Only switch to `active` after the validation report and OPE gates pass:
 
@@ -172,7 +243,8 @@ validated before it can enter OPE-backed deployment.
 ## Promotion checklist
 
 - [ ] Every source event chain verifies and has an external final-hash anchor.
-- [ ] Cost labels come from a trusted executor billing adapter or remain gated.
+- [ ] Execution-cost labels remain censored unless a metered executor supplies
+  idempotency-bound receipts; provider spend remains a separate run-level label.
 - [ ] Train, validation, and test splits are separated by trajectory and time.
 - [ ] Outcome calibration beats operation priors on held-out tasks.
 - [ ] Markov features show lift in an ablation and remain bounded.
