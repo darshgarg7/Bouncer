@@ -61,7 +61,7 @@ docker compose -f compose.demo.yaml up --build --abort-on-container-exit --exit-
 | --- | --- | --- |
 | **100,000-case policy parity** | The canonical Go policy matched an independent Python reference on exactly 100,000 generated cases | Differential consistency, not a proof of policy completeness |
 | **50/50 controlled fixture tasks** | The default single-proposer policy path completed every authored fixture with zero deliberately injected severe virtual mutations | Deterministic synthetic study, not real-world effectiveness |
-| **3/3 hosted pilot tasks** | NVIDIA Nemotron completed three authored virtual tasks; eight rejected proposals never executed and every event chain verified | One model, one seed, and no baseline: connectivity evidence, not an effectiveness benchmark |
+| **3/3 hosted pilot tasks** | NVIDIA Nemotron completed three authored virtual tasks; five rejected proposals never executed and every event chain verified | One model, one seed, and no baseline: connectivity evidence, not an effectiveness benchmark |
 
 The negative result matters too: a fixed 3×3 ensemble used **3.35×** the mean
 synthetic tokens of the default without improving fixture completion or the
