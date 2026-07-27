@@ -85,10 +85,11 @@ def main() -> None:
         ROOT / "schemas/run-manifest.schema.json",
         ROOT / "configs/run-manifest.nvidia-hosted.json",
     )
-    validate(
-        ROOT / "schemas/objective-calibration.schema.json",
-        ROOT / "configs/objective-calibration.bootstrap.json",
-    )
+    calibration_paths = sorted((ROOT / "configs").glob("objective-calibration.*.json"))
+    if not calibration_paths:
+        raise SystemExit("expected at least one checked-in objective-calibration artifact")
+    for calibration_path in calibration_paths:
+        validate(ROOT / "schemas/objective-calibration.schema.json", calibration_path)
     for calibration_path in args.objective_calibration:
         validate(ROOT / "schemas/objective-calibration.schema.json", calibration_path)
     task_schema = ROOT / "schemas/task.schema.json"

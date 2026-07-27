@@ -10,8 +10,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .evaluate import compact_record, summarize
+from .evaluate import compact_record, format_metric, summarize
 from .mock_nim import start_mock_nim
+from .provenance import evidence_provenance
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -71,14 +72,19 @@ def main(argv: list[str] | None = None) -> int:
     for summary in summaries.values():
         reference_tokens = reference["mean_total_tokens_per_successful_task"]
         current_tokens = summary["mean_total_tokens_per_successful_task"]
-        summary["relative_token_delta_vs_reference"] = round(
-            current_tokens / reference_tokens - 1, 4
+        summary["relative_token_delta_vs_reference"] = (
+            round(current_tokens / reference_tokens - 1, 4)
+            if reference_tokens not in {None, 0} and current_tokens is not None
+            else None
         )
     selected = select_configuration(summaries, manifest)
     document = {
         "schema_version": "0.1.0",
         "evaluation_id": manifest["evaluation_id"],
         "generated_at": datetime.now(UTC).isoformat(),
+        "provenance": evidence_provenance(
+            Path("configs/objective-calibration.synthetic-legacy.json")
+        ),
         "duration_seconds": round(time.perf_counter() - started, 3),
         "manifest": manifest,
         "summaries": summaries,
@@ -139,6 +145,8 @@ def run_variant(
             str(configuration.get("projector_mode", "subprocess")),
             "-routing-strategy",
             "legacy_crowding",
+            "-objective-calibration",
+            "configs/objective-calibration.synthetic-legacy.json",
         ],
         cwd=ROOT,
         text=True,
@@ -204,6 +212,12 @@ def render_report(document: dict[str, Any]) -> str:
         "",
         f"**Evaluation:** `{document['evaluation_id']}`",
         f"**Generated:** {document['generated_at']}",
+        f"**Source revision:** `{document['provenance']['source_revision']}`",
+        (f"**Source fingerprint:** `{document['provenance']['source_fingerprint_sha256']}`"),
+        (
+            "**Objective artifact:** "
+            f"`{document['provenance']['objective_calibration']['calibration_id']}`"
+        ),
         f"**Runs:** {len(document['records'])}",
         f"**Selected configuration:** `{document['selected_configuration']}`",
         "",
@@ -226,8 +240,8 @@ def render_report(document: dict[str, Any]) -> str:
         lines.append(
             f"| {identifier} | {summary['pass_rate']:.1%} | "
             f"{summary['runs_with_severe_mutation']}/{summary['attempts']} | "
-            f"{summary['mean_total_tokens_per_successful_task']:,.0f} | "
-            f"{summary['relative_token_delta_vs_reference']:+.1%} | "
+            f"{format_metric(summary['mean_total_tokens_per_successful_task'])} | "
+            f"{format_metric(summary['relative_token_delta_vs_reference'], '+.1%')} | "
             f"{summary['mean_model_calls']:.2f} | "
             f"{summary['mean_generated_candidates']:.2f} | "
             f"{summary['mean_duration_ms']:.0f} ms |"

@@ -8,10 +8,12 @@ import statistics
 import subprocess
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-from .evaluate import ROOT, compact_record, run_bouncer, summarize
+from .evaluate import ROOT, compact_record, format_metric, run_bouncer, summarize
 from .mock_nim import start_mock_nim
+from .provenance import evidence_provenance
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -56,6 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         "schema_version": "0.1.0",
         "evaluation_id": manifest["evaluation_id"],
         "generated_at": datetime.now(UTC).isoformat(),
+        "provenance": evidence_provenance(Path("configs/objective-calibration.bootstrap.json")),
         "duration_seconds": round(time.perf_counter() - started, 3),
         "interpretation": manifest["interpretation"],
         "manifest": manifest,
@@ -127,6 +130,12 @@ def render_report(document: dict[str, Any]) -> str:
         "",
         f"**Evaluation:** `{document['evaluation_id']}`",
         f"**Generated:** {document['generated_at']}",
+        f"**Source revision:** `{document['provenance']['source_revision']}`",
+        (f"**Source fingerprint:** `{document['provenance']['source_fingerprint_sha256']}`"),
+        (
+            "**Objective artifact:** "
+            f"`{document['provenance']['objective_calibration']['calibration_id']}`"
+        ),
         f"**Wall time:** {document['duration_seconds']} seconds",
         "",
         (
@@ -149,7 +158,7 @@ def render_report(document: dict[str, Any]) -> str:
         lines.append(
             f"| {name} | {summary['pass_rate']:.1%} | "
             f"{summary['runs_with_severe_mutation']}/{summary['attempts']} | "
-            f"{tokens:,.0f} | {summary['mean_model_calls']:.2f} | "
+            f"{format_metric(tokens)} | {summary['mean_model_calls']:.2f} | "
             f"{summary['mean_generated_candidates']:.2f} | "
             f"{comparison['mean_paired_token_difference']:+,.0f} |"
         )

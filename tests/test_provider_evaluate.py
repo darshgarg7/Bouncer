@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from benchmarking.evaluate import compare_conditions, run_bouncer, summarize
+from benchmarking.evaluate import compare_conditions, render_report, run_bouncer, summarize
 from benchmarking.provider_evaluate import RunStore
 
 
@@ -91,6 +91,25 @@ class ProviderEvaluationTests(unittest.TestCase):
         comparison = compare_conditions(records, summaries, manifest)
         self.assertIsNone(comparison["relative_token_delta"])
         self.assertFalse(comparison["h1_supported_in_simulation"])
+        report = render_report(
+            {
+                "evaluation_id": "test",
+                "generated_at": "2026-07-27T00:00:00Z",
+                "duration_seconds": 0,
+                "provenance": {
+                    "source_revision": "0" * 40,
+                    "source_fingerprint_sha256": "0" * 64,
+                    "objective_calibration": {"calibration_id": "test"},
+                },
+                "summaries": {
+                    "langgraph": summaries["langgraph"],
+                    "structured": summaries["langgraph"],
+                    "bouncer": summaries["bouncer"],
+                },
+                "comparisons": comparison,
+            }
+        )
+        self.assertIn("not estimable", report)
 
 
 if __name__ == "__main__":

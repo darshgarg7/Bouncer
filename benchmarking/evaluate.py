@@ -21,6 +21,7 @@ from typing import Any
 
 from .baselines import run_baseline
 from .mock_nim import start_mock_nim
+from .provenance import evidence_provenance
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -94,7 +95,12 @@ def main(argv: list[str] | None = None) -> int:
                             seed,
                             server.endpoint,
                             manifest_path=ROOT / "configs/run-manifest.synthetic-v1.json",
-                            extra_args=("-routing-strategy", "legacy_crowding"),
+                            extra_args=(
+                                "-routing-strategy",
+                                "legacy_crowding",
+                                "-objective-calibration",
+                                "configs/objective-calibration.synthetic-legacy.json",
+                            ),
                         )
                     )
                 )
@@ -112,6 +118,9 @@ def main(argv: list[str] | None = None) -> int:
         "schema_version": "0.1.0",
         "evaluation_id": manifest["evaluation_id"],
         "generated_at": generated_at,
+        "provenance": evidence_provenance(
+            Path("configs/objective-calibration.synthetic-legacy.json")
+        ),
         "duration_seconds": duration_seconds,
         "analysis_manifest": manifest,
         "summaries": summaries,
@@ -410,27 +419,45 @@ def render_report(document: dict[str, Any]) -> str:
     h1 = "SUPPORTED" if comparison["h1_supported_in_simulation"] else "NOT SUPPORTED"
     h2 = "SUPPORTED" if comparison["h2_supported_in_simulation"] else "NOT SUPPORTED"
     run_count = sum(summary["attempts"] for summary in summaries.values())
-    h1_result = (
-        f"Bouncer's mean synthetic token use changed by "
-        f"{comparison['relative_token_delta']:+.1%} against the LangGraph baseline. "
-        f"The paired mean difference was "
-        f"{comparison['mean_paired_token_difference']:+,.0f} tokens with a bootstrap "
-        f"95% interval of "
-        f"[{comparison['mean_paired_token_difference_95ci'][0]:+,.0f}, "
-        f"{comparison['mean_paired_token_difference_95ci'][1]:+,.0f}]."
-    )
-    h2_result = (
-        f"The severe-mutation run rate changed by "
-        f"{comparison['severe_run_rate_difference']:+.1%}; the bootstrap 95% interval "
-        f"was [{comparison['severe_run_rate_difference_95ci'][0]:+.1%}, "
-        f"{comparison['severe_run_rate_difference_95ci'][1]:+.1%}]. Bouncer's relative "
-        f"reduction was {comparison['severe_mutation_relative_reduction']:.1%}."
-    )
+    if comparison["relative_token_delta"] is None:
+        h1_result = (
+            "Token efficiency was not estimable because no paired run had both "
+            "conditions complete successfully."
+        )
+    else:
+        h1_result = (
+            f"Bouncer's mean synthetic token use changed by "
+            f"{comparison['relative_token_delta']:+.1%} against the LangGraph baseline. "
+            f"The paired mean difference was "
+            f"{comparison['mean_paired_token_difference']:+,.0f} tokens with a bootstrap "
+            f"95% interval of "
+            f"[{comparison['mean_paired_token_difference_95ci'][0]:+,.0f}, "
+            f"{comparison['mean_paired_token_difference_95ci'][1]:+,.0f}]."
+        )
+    if comparison["severe_mutation_relative_reduction"] is None:
+        h2_result = (
+            "Relative severe-mutation reduction was not estimable because the baseline "
+            "had no severe-mutation runs."
+        )
+    else:
+        h2_result = (
+            f"The severe-mutation run rate changed by "
+            f"{comparison['severe_run_rate_difference']:+.1%}; the bootstrap 95% interval "
+            f"was [{comparison['severe_run_rate_difference_95ci'][0]:+.1%}, "
+            f"{comparison['severe_run_rate_difference_95ci'][1]:+.1%}]. Bouncer's relative "
+            f"reduction was {comparison['severe_mutation_relative_reduction']:.1%}."
+        )
     lines = [
         "# Bouncer Synthetic MVB Evaluation",
         "",
         f"**Evaluation:** `{document['evaluation_id']}`",
         f"**Generated:** {document['generated_at']}",
+        f"**Source revision:** `{document['provenance']['source_revision']}`",
+        (f"**Source fingerprint:** `{document['provenance']['source_fingerprint_sha256']}`"),
+        (
+            "**Objective artifact:** "
+            f"`{document['provenance']['objective_calibration']['calibration_id']}`"
+        ),
         f"**Runs:** {run_count} across 10 tasks, 5 seeds, and 3 conditions",
         f"**Wall time:** {document['duration_seconds']} seconds",
         "",
@@ -455,7 +482,7 @@ def render_report(document: dict[str, Any]) -> str:
             f"| {condition} | {summary['pass_rate']:.1%} | "
             f"{summary['runs_with_severe_mutation']}/{summary['attempts']} "
             f"({summary['runs_with_severe_mutation_rate']:.1%}) | "
-            f"{summary['mean_total_tokens_per_successful_task']:,.0f} | "
+            f"{format_metric(summary['mean_total_tokens_per_successful_task'])} | "
             f"{summary['mean_model_calls']:.2f} | "
             f"{summary['mean_generated_candidates']:.2f} | "
             f"{summary['mean_duration_ms']:.0f} ms |"
@@ -532,6 +559,11 @@ def render_report(document: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def format_metric(value: float | None, format_spec: str = ",.0f") -> str:
+    """Format an optional report metric without hiding non-estimability."""
+    return "not estimable" if value is None else format(value, format_spec)
 
 
 if __name__ == "__main__":
