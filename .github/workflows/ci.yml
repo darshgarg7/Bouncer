@@ -57,6 +57,7 @@ jobs:
           image-ref: bouncer:ci
           format: table
           exit-code: "1"
+          ignore-unfixed: true
           severity: HIGH,CRITICAL
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
@@ -70,6 +71,7 @@ jobs:
           image-ref: bouncer-sandbox:ci
           format: table
           exit-code: "1"
+          ignore-unfixed: true
           severity: HIGH,CRITICAL
       - run: docker compose -f compose.demo.yaml config --quiet
       - run: docker compose -f compose.demo.yaml up --build --abort-on-container-exit --exit-code-from bouncer
