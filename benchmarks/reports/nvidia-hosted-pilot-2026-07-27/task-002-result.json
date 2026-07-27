@@ -5,17 +5,19 @@
   "passed": true,
   "task_complete": true,
   "oracle_failures": [],
-  "turns": 7,
-  "model_calls": 7,
-  "prompt_tokens": 3082,
-  "completion_tokens": 3614,
+  "turns": 6,
+  "model_calls": 6,
+  "prompt_tokens": 2610,
+  "completion_tokens": 2874,
   "reasoning_tokens": 0,
-  "total_tokens": 6696,
-  "generated_candidates": 7,
-  "constraint_rejections": 3,
+  "total_tokens": 5484,
+  "generated_candidates": 6,
+  "constraint_rejections": 2,
   "executed_actions": 4,
   "severe_mutations": 0,
   "routing_strategy": "lexicographic",
+  "learning_mode": "disabled",
+  "monitoring_alerts": 3,
   "objective_calibration": {
     "schema_version": "0.1.0",
     "calibration_id": "bootstrap-operation-priors-v1",
@@ -33,7 +35,7 @@
   },
   "adaptive_proposals": false,
   "proposal_expansions": 0,
-  "duration_ms": 151903,
+  "duration_ms": 82353,
   "final_state": {
     "completed_operations": [
       "filesystem.read",
@@ -60,16 +62,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 10679,
+            "latency_ms": 5714,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-c5ffe7d5-d85a-4abf-97d6-956cf08cd532",
+            "provider_request_id": "chatcmpl-d9ed60c5-8758-41a2-b3d5-d12239ebc651",
             "request_hash": "5230fd766a81d0d381fdc88ca2358ca9bce7e9cb207ec41e1e8f024e575d8191",
-            "response_hash": "6a5d1a7c14ba0c7e2cdb6a9264e3368375b3458f01bd2d0085371f33052f8ff5",
+            "response_hash": "b94b432c08fb8438b818861418df39977515918cdaf4eb331eadb2841b433ad7",
             "usage": {
               "prompt_tokens": 408,
-              "completion_tokens": 267,
-              "total_tokens": 675,
+              "completion_tokens": 366,
+              "total_tokens": 774,
               "reasoning_tokens": 0
             }
           }
@@ -95,16 +97,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 5162,
+            "latency_ms": 4991,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-0b1399a1-2c80-4365-85fc-716f6c45d783",
+            "provider_request_id": "chatcmpl-4e27b707-9264-4221-a5b4-1ad1cdc77f37",
             "request_hash": "0844364fa7e4231f128b0a836a994346f6045d004244df12c06229010925a1ee",
-            "response_hash": "5fe7c5ac34b69dea1d9da9b51909f52973d14d28d532dbb5524fcfd51cc0da16",
+            "response_hash": "561d7caaac468d428f48c010e122cb085b3725e898491111e7908cffa847b2fa",
             "usage": {
               "prompt_tokens": 469,
-              "completion_tokens": 378,
-              "total_tokens": 847,
+              "completion_tokens": 365,
+              "total_tokens": 834,
               "reasoning_tokens": 0
             }
           }
@@ -115,17 +117,36 @@
       "event_type": "constraint.evaluated",
       "step_id": 1,
       "payload": {
-        "action_id": "agent-1:cand-read-001",
+        "action_id": "agent-1:cand-001",
         "allowed": true,
-        "projection": "\u003cconstraint_pass action_id=\"agent-1:cand-read-001\"/\u003e"
+        "projection": "\u003cconstraint_pass action_id=\"agent-1:cand-001\"/\u003e"
       }
     },
     {
       "event_type": "candidate.selected",
       "step_id": 1,
       "payload": {
-        "action_id": "agent-1:cand-read-001",
+        "action_id": "agent-1:cand-001",
+        "behavior_probability": 1,
+        "decision_id": "task-002:1",
+        "eligible_candidates": [
+          {
+            "candidate_id": "agent-1:cand-001",
+            "operation_class": "filesystem.read",
+            "routing_objectives": {
+              "latency_ms": 30,
+              "cost_units": 0.05,
+              "safety_risk": 0.02
+            },
+            "target_category": "workspace",
+            "tool": "read_file"
+          }
+        ],
         "epsilon": 0.05,
+        "feature_schema_version": "0.1.0",
+        "learning": {
+          "mode": "disabled"
+        },
         "objective_calibration": {
           "schema_version": "0.1.0",
           "calibration_id": "bootstrap-operation-priors-v1",
@@ -143,7 +164,7 @@
         },
         "objective_records": [
           {
-            "candidate_id": "agent-1:cand-read-001",
+            "candidate_id": "agent-1:cand-001",
             "operation_class": "filesystem.read",
             "raw_objectives": {
               "latency_ms": 10,
@@ -175,30 +196,18 @@
         "objective_source": "trusted_calibration_artifact",
         "ranked": [
           {
-            "candidate": {
-              "candidate_id": "agent-1:cand-read-001",
-              "operation_class": "filesystem.read",
-              "tool": "read_file",
-              "target": "workspace/app/routes.txt",
-              "arguments": {},
-              "declared_dependencies": [],
-              "estimated_objectives": {
-                "latency_ms": 10,
-                "cost_units": 1,
-                "safety_risk": 0
-              }
-            },
-            "routing_objectives": {
-              "latency_ms": 30,
-              "cost_units": 0.05,
-              "safety_risk": 0.02
-            },
-            "rank": 0,
+            "candidate_id": "agent-1:cand-001",
             "crowding_distance": 1.7976931348623157e+308,
             "normalized_objectives": {
               "latency_ms": 0,
               "cost_units": 0,
               "safety_risk": 0
+            },
+            "rank": 0,
+            "routing_objectives": {
+              "latency_ms": 30,
+              "cost_units": 0.05,
+              "safety_risk": 0.02
             }
           }
         ],
@@ -210,6 +219,14 @@
         },
         "selection_probability": 1,
         "selection_score": 0,
+        "state": {
+          "benchmark_step": 0,
+          "completed_operations": null,
+          "constraint_feedback_count": 1,
+          "file_count": 1,
+          "mutation_count": 0,
+          "state_sha256": "a5136c2bc98a1802aa986dd7ee11b2a3b285a1feff28f550474d464bf8f8dfb6"
+        },
         "strategy": "lexicographic",
         "weights": {
           "latency_ms": 0.2,
@@ -222,7 +239,24 @@
       "event_type": "execution.completed",
       "step_id": 1,
       "payload": {
-        "action_id": "agent-1:cand-read-001",
+        "action_id": "agent-1:cand-001",
+        "adverse": false,
+        "censored": false,
+        "cost_censored": true,
+        "cost_units": null,
+        "decision_id": "task-002:1",
+        "latency_ms": 0.003,
+        "monitoring": {
+          "features": {
+            "rejection_rate": 0,
+            "retry_rate": 0,
+            "no_progress_streak": 1,
+            "tool_switch_rate": 0,
+            "latency_delta_ms": 0,
+            "transition_nll": 0
+          },
+          "rule_alerts": []
+        },
         "operation": "filesystem.read",
         "outcome": {
           "state_diff": {
@@ -233,7 +267,13 @@
           },
           "mutation": false,
           "complete": false
-        }
+        },
+        "progress_after": 0,
+        "progress_before": 0,
+        "progress_delta": 0,
+        "state_after_sha256": "38722d694d6c151f3b5af6f1ee55251baa4b1157e5d3ce07805bec4f4723ecf4",
+        "state_before_sha256": "a5136c2bc98a1802aa986dd7ee11b2a3b285a1feff28f550474d464bf8f8dfb6",
+        "terminal": false
       }
     },
     {
@@ -246,16 +286,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 5551,
+            "latency_ms": 4089,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-3e03965f-2e7d-477a-8313-24d167d10903",
+            "provider_request_id": "chatcmpl-f83e9974-d47d-4a68-a5f6-b997f7fe3c05",
             "request_hash": "5e92b7120988021276e22923d362af03b73e8c64d4994689154cbf185c2b83da",
-            "response_hash": "7be89d176f3c4bbb011089cf787d926616f0dffadf6e17f5d72ff925f29c9635",
+            "response_hash": "59db1089abb4ab07af4dfeafa17f29993d352aa9bceeda2d89e574c76edd697a",
             "usage": {
               "prompt_tokens": 412,
-              "completion_tokens": 270,
-              "total_tokens": 682,
+              "completion_tokens": 363,
+              "total_tokens": 775,
               "reasoning_tokens": 0
             }
           }
@@ -276,7 +316,26 @@
       "step_id": 2,
       "payload": {
         "action_id": "agent-1:cand-001",
+        "behavior_probability": 1,
+        "decision_id": "task-002:2",
+        "eligible_candidates": [
+          {
+            "candidate_id": "agent-1:cand-001",
+            "operation_class": "filesystem.write",
+            "routing_objectives": {
+              "latency_ms": 60,
+              "cost_units": 0.1,
+              "safety_risk": 0.15
+            },
+            "target_category": "workspace",
+            "tool": "write_file"
+          }
+        ],
         "epsilon": 0.05,
+        "feature_schema_version": "0.1.0",
+        "learning": {
+          "mode": "disabled"
+        },
         "objective_calibration": {
           "schema_version": "0.1.0",
           "calibration_id": "bootstrap-operation-priors-v1",
@@ -326,34 +385,18 @@
         "objective_source": "trusted_calibration_artifact",
         "ranked": [
           {
-            "candidate": {
-              "candidate_id": "agent-1:cand-001",
-              "operation_class": "filesystem.write",
-              "tool": "write_file",
-              "target": "workspace/app/routes.txt",
-              "arguments": {
-                "content": "GET /\nGET /health\n"
-              },
-              "declared_dependencies": [
-                "filesystem.read"
-              ],
-              "estimated_objectives": {
-                "latency_ms": 50,
-                "cost_units": 1,
-                "safety_risk": 0.05
-              }
-            },
-            "routing_objectives": {
-              "latency_ms": 60,
-              "cost_units": 0.1,
-              "safety_risk": 0.15
-            },
-            "rank": 0,
+            "candidate_id": "agent-1:cand-001",
             "crowding_distance": 1.7976931348623157e+308,
             "normalized_objectives": {
               "latency_ms": 0,
               "cost_units": 0,
               "safety_risk": 0
+            },
+            "rank": 0,
+            "routing_objectives": {
+              "latency_ms": 60,
+              "cost_units": 0.1,
+              "safety_risk": 0.15
             }
           }
         ],
@@ -365,6 +408,16 @@
         },
         "selection_probability": 1,
         "selection_score": 0,
+        "state": {
+          "benchmark_step": 1,
+          "completed_operations": [
+            "filesystem.read"
+          ],
+          "constraint_feedback_count": 0,
+          "file_count": 1,
+          "mutation_count": 0,
+          "state_sha256": "38722d694d6c151f3b5af6f1ee55251baa4b1157e5d3ce07805bec4f4723ecf4"
+        },
         "strategy": "lexicographic",
         "weights": {
           "latency_ms": 0.2,
@@ -378,6 +431,25 @@
       "step_id": 2,
       "payload": {
         "action_id": "agent-1:cand-001",
+        "adverse": false,
+        "censored": false,
+        "cost_censored": true,
+        "cost_units": null,
+        "decision_id": "task-002:2",
+        "latency_ms": 0.007,
+        "monitoring": {
+          "features": {
+            "rejection_rate": 0,
+            "retry_rate": 0,
+            "no_progress_streak": 0,
+            "tool_switch_rate": 1,
+            "latency_delta_ms": 0.004,
+            "transition_nll": 0
+          },
+          "rule_alerts": [
+            "mutation_budget_exhausted"
+          ]
+        },
         "operation": "filesystem.write",
         "outcome": {
           "state_diff": {
@@ -390,7 +462,13 @@
           },
           "mutation": true,
           "complete": false
-        }
+        },
+        "progress_after": 0.5,
+        "progress_before": 0,
+        "progress_delta": 0.5,
+        "state_after_sha256": "38fd741af2ed5cf699f7eca6e0bfed3f3a52bfdd190f83b1d75ff75f0f01a390",
+        "state_before_sha256": "38722d694d6c151f3b5af6f1ee55251baa4b1157e5d3ce07805bec4f4723ecf4",
+        "terminal": false
       }
     },
     {
@@ -403,16 +481,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 9494,
+            "latency_ms": 12886,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-f20668c4-357e-4fc9-9c95-67f087564b75",
+            "provider_request_id": "chatcmpl-3ef9189d-4066-4925-a3a0-47eebbc224ce",
             "request_hash": "d1194c1a6f92626a411a9d681eebffb4a33c567fcd6df85a2befcd9bab87223e",
-            "response_hash": "8a1d5b448c844a6354bc99c58596761c68c9fb2b0f68462872bf2fe8973b930e",
+            "response_hash": "660622130fd9b253ce82373a2f3e2fba6bf4469ec8deaed16b092f01680457d7",
             "usage": {
               "prompt_tokens": 420,
-              "completion_tokens": 839,
-              "total_tokens": 1259,
+              "completion_tokens": 685,
+              "total_tokens": 1105,
               "reasoning_tokens": 0
             }
           }
@@ -423,9 +501,9 @@
       "event_type": "constraint.evaluated",
       "step_id": 3,
       "payload": {
-        "action_id": "agent-1:complete-task-002",
+        "action_id": "agent-1:candidate-1",
         "allowed": false,
-        "projection": "\u003cconstraint_violation action_id=\"agent-1:complete-task-002\" code=\"MISSING_DEPENDENCY\" operation=\"task.complete\" dependency=\"state.validate\"/\u003e"
+        "projection": "\u003cconstraint_violation action_id=\"agent-1:candidate-1\" code=\"MISSING_DEPENDENCY\" operation=\"task.complete\" dependency=\"state.validate\"/\u003e"
       }
     },
     {
@@ -438,16 +516,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 10279,
+            "latency_ms": 12175,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-fdad43e8-8264-4717-933f-09bc23b88def",
-            "request_hash": "15a4e0a24e13baf7b46fb255571b1817252e70b18a5713dcff74e968149d3fc7",
-            "response_hash": "b1b49683ba48fb2c9250da7c41e7de3d1760439447a75ad4f1c88f9d7dec74cd",
+            "provider_request_id": "chatcmpl-5b5a94c4-a040-40f4-93f5-ffdcc3dd3d73",
+            "request_hash": "e9f16c75818eebfc2093700b70c17c32c05ba3e42b9c6741a1af2f7f98802c16",
+            "response_hash": "64cb6bf813c2510727eea23edf057b1a35173fb12d42a9e1c00be556c8b714d4",
             "usage": {
-              "prompt_tokens": 480,
-              "completion_tokens": 371,
-              "total_tokens": 851,
+              "prompt_tokens": 478,
+              "completion_tokens": 625,
+              "total_tokens": 1103,
               "reasoning_tokens": 0
             }
           }
@@ -458,52 +536,36 @@
       "event_type": "constraint.evaluated",
       "step_id": 4,
       "payload": {
-        "action_id": "agent-1:agent-1:validate-routes",
-        "allowed": false,
-        "projection": "\u003cconstraint_violation action_id=\"agent-1:agent-1:validate-routes\" code=\"INVALID_TARGET\" target=\"workspace/app/\"/\u003e"
-      }
-    },
-    {
-      "event_type": "proposal.completed",
-      "step_id": 5,
-      "payload": {
-        "candidate_count": 1,
-        "proposal_count": 1,
-        "provider_evidence": [
-          {
-            "attempts": 1,
-            "finish_reason": "stop",
-            "latency_ms": 25436,
-            "model": "nvidia/nemotron-3-ultra-550b-a55b",
-            "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-ee2a1fc7-9953-4fdc-ae80-73396a1b0121",
-            "request_hash": "e45a0a7d25cf6f18537ae36f10864ab73d32f81a4695436502ee0f8b36cbc5eb",
-            "response_hash": "b929e4b7f1a2df4f74034ec2f22d3ae89433b702faff4c580e88fdb818de953e",
-            "usage": {
-              "prompt_tokens": 470,
-              "completion_tokens": 651,
-              "total_tokens": 1121,
-              "reasoning_tokens": 0
-            }
-          }
-        ]
-      }
-    },
-    {
-      "event_type": "constraint.evaluated",
-      "step_id": 5,
-      "payload": {
-        "action_id": "agent-1:validate-routes-001",
+        "action_id": "agent-1:candidate-1",
         "allowed": true,
-        "projection": "\u003cconstraint_pass action_id=\"agent-1:validate-routes-001\"/\u003e"
+        "projection": "\u003cconstraint_pass action_id=\"agent-1:candidate-1\"/\u003e"
       }
     },
     {
       "event_type": "candidate.selected",
-      "step_id": 5,
+      "step_id": 4,
       "payload": {
-        "action_id": "agent-1:validate-routes-001",
+        "action_id": "agent-1:candidate-1",
+        "behavior_probability": 1,
+        "decision_id": "task-002:4",
+        "eligible_candidates": [
+          {
+            "candidate_id": "agent-1:candidate-1",
+            "operation_class": "state.validate",
+            "routing_objectives": {
+              "latency_ms": 40,
+              "cost_units": 0.08,
+              "safety_risk": 0.02
+            },
+            "target_category": "workspace",
+            "tool": "state.validate"
+          }
+        ],
         "epsilon": 0.05,
+        "feature_schema_version": "0.1.0",
+        "learning": {
+          "mode": "disabled"
+        },
         "objective_calibration": {
           "schema_version": "0.1.0",
           "calibration_id": "bootstrap-operation-priors-v1",
@@ -521,20 +583,20 @@
         },
         "objective_records": [
           {
-            "candidate_id": "agent-1:validate-routes-001",
+            "candidate_id": "agent-1:candidate-1",
             "operation_class": "state.validate",
             "raw_objectives": {
-              "latency_ms": 100,
+              "latency_ms": 10,
               "cost_units": 1,
               "safety_risk": 0.1
             },
             "bounded_objectives": {
-              "latency_ms": 100,
+              "latency_ms": 10,
               "cost_units": 1,
               "safety_risk": 0.1
             },
             "transformed_objectives": {
-              "latency_ms": 100,
+              "latency_ms": 10,
               "cost_units": 1,
               "safety_risk": 0.10000000000000002
             },
@@ -553,30 +615,18 @@
         "objective_source": "trusted_calibration_artifact",
         "ranked": [
           {
-            "candidate": {
-              "candidate_id": "agent-1:validate-routes-001",
-              "operation_class": "state.validate",
-              "tool": "validate_routes",
-              "target": "workspace/app/routes.txt",
-              "arguments": {},
-              "declared_dependencies": [],
-              "estimated_objectives": {
-                "latency_ms": 100,
-                "cost_units": 1,
-                "safety_risk": 0.1
-              }
-            },
-            "routing_objectives": {
-              "latency_ms": 40,
-              "cost_units": 0.08,
-              "safety_risk": 0.02
-            },
-            "rank": 0,
+            "candidate_id": "agent-1:candidate-1",
             "crowding_distance": 1.7976931348623157e+308,
             "normalized_objectives": {
               "latency_ms": 0,
               "cost_units": 0,
               "safety_risk": 0
+            },
+            "rank": 0,
+            "routing_objectives": {
+              "latency_ms": 40,
+              "cost_units": 0.08,
+              "safety_risk": 0.02
             }
           }
         ],
@@ -588,6 +638,17 @@
         },
         "selection_probability": 1,
         "selection_score": 0,
+        "state": {
+          "benchmark_step": 2,
+          "completed_operations": [
+            "filesystem.read",
+            "filesystem.write"
+          ],
+          "constraint_feedback_count": 1,
+          "file_count": 1,
+          "mutation_count": 1,
+          "state_sha256": "766e66031ff08270556cd77cbbb1a72e05e58ccb8d8d8dd21022733767b77fba"
+        },
         "strategy": "lexicographic",
         "weights": {
           "latency_ms": 0.2,
@@ -598,9 +659,28 @@
     },
     {
       "event_type": "execution.completed",
-      "step_id": 5,
+      "step_id": 4,
       "payload": {
-        "action_id": "agent-1:validate-routes-001",
+        "action_id": "agent-1:candidate-1",
+        "adverse": false,
+        "censored": false,
+        "cost_censored": true,
+        "cost_units": null,
+        "decision_id": "task-002:4",
+        "latency_ms": 0.007,
+        "monitoring": {
+          "features": {
+            "rejection_rate": 0,
+            "retry_rate": 0,
+            "no_progress_streak": 1,
+            "tool_switch_rate": 1,
+            "latency_delta_ms": 0,
+            "transition_nll": 0
+          },
+          "rule_alerts": [
+            "mutation_budget_exhausted"
+          ]
+        },
         "operation": "state.validate",
         "outcome": {
           "state_diff": {
@@ -611,12 +691,18 @@
           },
           "mutation": false,
           "complete": false
-        }
+        },
+        "progress_after": 0.5,
+        "progress_before": 0.5,
+        "progress_delta": 0,
+        "state_after_sha256": "176761b6dc7c70dae51633268f13e7eb16d49222183d9ad2e5b8ee47fe75777e",
+        "state_before_sha256": "766e66031ff08270556cd77cbbb1a72e05e58ccb8d8d8dd21022733767b77fba",
+        "terminal": false
       }
     },
     {
       "event_type": "proposal.completed",
-      "step_id": 6,
+      "step_id": 5,
       "payload": {
         "candidate_count": 1,
         "proposal_count": 1,
@@ -624,16 +710,16 @@
           {
             "attempts": 1,
             "finish_reason": "stop",
-            "latency_ms": 85178,
+            "latency_ms": 42360,
             "model": "nvidia/nemotron-3-ultra-550b-a55b",
             "proposer_id": "agent-1",
-            "provider_request_id": "chatcmpl-fcb4a055-3ec9-4eee-95eb-f1211f4c7939",
-            "request_hash": "8f59543f9eedcd3f558fc4c5038a80403fd4f52755a82b39b33f523d6be1e0ae",
-            "response_hash": "28926d6c6aff4a14da16de40ef488b8f8c1000a50f015edf807e58ad4d155891",
+            "provider_request_id": "chatcmpl-816b3447-3be4-4526-9d13-e8efe301f14f",
+            "request_hash": "5cf2a4dd46db7a7c3a55989b7650e315a4871c7bfb21fec830269a1f11a711d6",
+            "response_hash": "b63be37b41413b59b4a9d3ae0d1434c722d5b4354009325456cff30197afec79",
             "usage": {
               "prompt_tokens": 423,
-              "completion_tokens": 838,
-              "total_tokens": 1261,
+              "completion_tokens": 470,
+              "total_tokens": 893,
               "reasoning_tokens": 0
             }
           }
@@ -642,19 +728,38 @@
     },
     {
       "event_type": "constraint.evaluated",
-      "step_id": 6,
+      "step_id": 5,
       "payload": {
-        "action_id": "agent-1:task-complete-001",
+        "action_id": "agent-1:complete-task-002",
         "allowed": true,
-        "projection": "\u003cconstraint_pass action_id=\"agent-1:task-complete-001\"/\u003e"
+        "projection": "\u003cconstraint_pass action_id=\"agent-1:complete-task-002\"/\u003e"
       }
     },
     {
       "event_type": "candidate.selected",
-      "step_id": 6,
+      "step_id": 5,
       "payload": {
-        "action_id": "agent-1:task-complete-001",
+        "action_id": "agent-1:complete-task-002",
+        "behavior_probability": 1,
+        "decision_id": "task-002:5",
+        "eligible_candidates": [
+          {
+            "candidate_id": "agent-1:complete-task-002",
+            "operation_class": "task.complete",
+            "routing_objectives": {
+              "latency_ms": 10,
+              "cost_units": 0.01,
+              "safety_risk": 0.01
+            },
+            "target_category": "workspace",
+            "tool": "state"
+          }
+        ],
         "epsilon": 0.05,
+        "feature_schema_version": "0.1.0",
+        "learning": {
+          "mode": "disabled"
+        },
         "objective_calibration": {
           "schema_version": "0.1.0",
           "calibration_id": "bootstrap-operation-priors-v1",
@@ -672,21 +777,21 @@
         },
         "objective_records": [
           {
-            "candidate_id": "agent-1:task-complete-001",
+            "candidate_id": "agent-1:complete-task-002",
             "operation_class": "task.complete",
             "raw_objectives": {
-              "latency_ms": 100,
-              "cost_units": 1,
+              "latency_ms": 0,
+              "cost_units": 0,
               "safety_risk": 0
             },
             "bounded_objectives": {
-              "latency_ms": 100,
-              "cost_units": 1,
+              "latency_ms": 0,
+              "cost_units": 0,
               "safety_risk": 0
             },
             "transformed_objectives": {
-              "latency_ms": 100,
-              "cost_units": 1,
+              "latency_ms": 0,
+              "cost_units": 0,
               "safety_risk": 0.0000010000000000000008
             },
             "operation_prior": {
@@ -704,30 +809,18 @@
         "objective_source": "trusted_calibration_artifact",
         "ranked": [
           {
-            "candidate": {
-              "candidate_id": "agent-1:task-complete-001",
-              "operation_class": "task.complete",
-              "tool": "task.complete",
-              "target": "workspace/app/routes.txt",
-              "arguments": {},
-              "declared_dependencies": [],
-              "estimated_objectives": {
-                "latency_ms": 100,
-                "cost_units": 1,
-                "safety_risk": 0
-              }
-            },
-            "routing_objectives": {
-              "latency_ms": 10,
-              "cost_units": 0.01,
-              "safety_risk": 0.01
-            },
-            "rank": 0,
+            "candidate_id": "agent-1:complete-task-002",
             "crowding_distance": 1.7976931348623157e+308,
             "normalized_objectives": {
               "latency_ms": 0,
               "cost_units": 0,
               "safety_risk": 0
+            },
+            "rank": 0,
+            "routing_objectives": {
+              "latency_ms": 10,
+              "cost_units": 0.01,
+              "safety_risk": 0.01
             }
           }
         ],
@@ -739,6 +832,18 @@
         },
         "selection_probability": 1,
         "selection_score": 0,
+        "state": {
+          "benchmark_step": 3,
+          "completed_operations": [
+            "filesystem.read",
+            "filesystem.write",
+            "state.validate"
+          ],
+          "constraint_feedback_count": 0,
+          "file_count": 1,
+          "mutation_count": 1,
+          "state_sha256": "176761b6dc7c70dae51633268f13e7eb16d49222183d9ad2e5b8ee47fe75777e"
+        },
         "strategy": "lexicographic",
         "weights": {
           "latency_ms": 0.2,
@@ -749,9 +854,28 @@
     },
     {
       "event_type": "execution.completed",
-      "step_id": 6,
+      "step_id": 5,
       "payload": {
-        "action_id": "agent-1:task-complete-001",
+        "action_id": "agent-1:complete-task-002",
+        "adverse": false,
+        "censored": false,
+        "cost_censored": true,
+        "cost_units": null,
+        "decision_id": "task-002:5",
+        "latency_ms": 0.004,
+        "monitoring": {
+          "features": {
+            "rejection_rate": 0,
+            "retry_rate": 0,
+            "no_progress_streak": 0,
+            "tool_switch_rate": 1,
+            "latency_delta_ms": -0.003,
+            "transition_nll": 0
+          },
+          "rule_alerts": [
+            "mutation_budget_exhausted"
+          ]
+        },
         "operation": "task.complete",
         "outcome": {
           "state_diff": {
@@ -762,7 +886,13 @@
           },
           "mutation": false,
           "complete": true
-        }
+        },
+        "progress_after": 1,
+        "progress_before": 0.5,
+        "progress_delta": 0.5,
+        "state_after_sha256": "a6a7ae45bb8a7dd7669a8fc12ff74467d26654e09b7c2a5ed54877dc32c58c60",
+        "state_before_sha256": "176761b6dc7c70dae51633268f13e7eb16d49222183d9ad2e5b8ee47fe75777e",
+        "terminal": true
       }
     }
   ]

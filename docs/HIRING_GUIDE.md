@@ -21,9 +21,10 @@ a SHA-256 chain with lifecycle and identity checks.
 The project originally explored large proposal ensembles and advanced routers.
 A controlled fixture study found no completion or severe-mutation improvement
 from a fixed 3×3 ensemble, despite 3.35× mean synthetic token cost, so the
-single-proposer policy path became the default. A hosted pilot passed 2/3 task
-oracles and exposed a strict-completion failure; that result is reported as
-connectivity evidence, not effectiveness.
+single-proposer policy path became the default. One hosted pilot passed only
+2/3 task oracles and exposed a strict-completion failure; the current
+source-bound rerun passed 3/3. Both remain connectivity evidence, not
+effectiveness.
 
 Optional learned routing runs only after admission. The bootstrap artifact is
 shadow-only, and active promotion requires measured outcomes, held-out gates,
@@ -38,7 +39,7 @@ support checks, and an explicit configuration change.
    idempotency, and remaining qualification gaps.
 4. **Evidence (1 minute):** lifecycle semantics, hash links, external anchors.
 5. **Experiments (1.5 minutes):** synthetic fixtures, negative ensemble result,
-   and honest 2/3 provider pilot.
+   and honest provider-pilot history, including both 2/3 and 3/3 runs.
 6. **Learned routing (1.5 minutes):** trusted features, conservative objectives,
    shadow mode, and why policy authority is unchanged.
 7. **Limitations and next experiment (1.5 minutes):** external benchmarks,

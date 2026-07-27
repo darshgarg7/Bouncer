@@ -24,8 +24,9 @@ and terminal hash. Explain why an external anchor is still required.
 
 ## 3:15–4:10 — Experiments
 
-Show the mechanism table and 2/3 hosted pilot. Explain the negative ensemble
-result and the strict-completion failure without inflating either study.
+Show the mechanism table and current 3/3 hosted pilot. Explain the negative
+ensemble result and the preserved 2/3 strict-completion failure without
+inflating either study.
 
 ## 4:10–5:00 — Learning and limits
 

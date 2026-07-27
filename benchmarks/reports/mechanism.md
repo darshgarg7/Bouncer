@@ -1,11 +1,11 @@
 # Bouncer controlled mechanism study
 
 **Evaluation:** `synthetic-mechanism-v1`
-**Generated:** 2026-07-27T06:20:49.038356+00:00
-**Source revision:** `35c799ca29ddbf4ba710b2bab41b5f3dcc0d6766`
-**Source fingerprint:** `e768534e61b175933efa48274f53a7fa5e111c97b206894f8a673cdd6f012e25`
+**Generated:** 2026-07-27T09:08:51.091205+00:00
+**Source revision:** `4da158c5374dd329c43339538dcd8cb48d9ef8dc`
+**Source fingerprint:** `da156070136a2109903be38489d28040ef875357edc337deeb21119be72db3f0`
 **Objective artifact:** `bootstrap-operation-priors-v1`
-**Wall time:** 13.427 seconds
+**Wall time:** 14.377 seconds
 
 > This is deterministic smoke-suite evidence with synthetic provider telemetry. It measures implementation behavior, not real-model capability, production safety, or causal effects.
 

@@ -73,10 +73,10 @@
     {
       "claim_id": "C-014",
       "artifact": "benchmarks/reports/nvidia-hosted-pilot-2026-07-27/summary.json",
-      "required_text": ["2/3", "eight", "all three terminal event chains verified"],
+      "required_text": ["3/3", "eight", "all three terminal event chains verified"],
       "assertions": [
         {"pointer": "/attempts", "equals": 3},
-        {"pointer": "/successes", "equals": 2},
+        {"pointer": "/successes", "equals": 3},
         {"pointer": "/constraint_rejections", "equals": 8},
         {"pointer": "/severe_mutations", "equals": 0}
       ]

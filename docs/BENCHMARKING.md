@@ -92,17 +92,16 @@ Single proposer + policy is therefore the runtime default. Multi-candidate modes
 The current checked-in [NVIDIA hosted pilot](../benchmarks/reports/nvidia-hosted-pilot-2026-07-27/README.md)
 ran tasks 001–003 through the complete control loop with the frozen single-action
 manifest, canonical Go policy, and virtual executor. The hosted model completed
-2/3 exact task oracles. Eight proposed actions were rejected and were not
-executed. Task 001 made the requested file change but did not produce a valid
-`task.complete` target before the turn limit. All three event chains passed
-lifecycle and hash verification.
+3/3 exact task oracles. Eight proposed actions were rejected and were not
+executed. All three event chains passed lifecycle and hash verification.
 
 This pilot is classified E2P rather than E3: its fixtures are authored and
 unaudited, it uses one model and seed, and it has no equal-permission comparison
-condition. Its 23,296 reported tokens describe strictly parsed responses in
+condition. Its 19,044 reported tokens describe strictly parsed responses in
 these runs; they do not establish a token advantage. The archived July 26
-result predates the objective-calibration boundary and is not used as current
-evidence.
+result predates the objective-calibration boundary, and an intervening
+objective-calibrated pilot passed only 2/3 because of a strict-completion
+failure. Neither is pooled with the current evidence.
 
 ## Reproduction
 

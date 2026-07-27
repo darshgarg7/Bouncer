@@ -48,11 +48,12 @@ zero model influence. Nonzero influence now requires held-out measured evidence.
 
 ### Real-provider completion was stricter than connectivity
 
-The first hosted pilot established API connectivity and strict parsing, but the
-model repeatedly produced invalid `task.complete` targets. A later three-task
-pilot passed only 2/3 task oracles: one task made the requested file change but
-still failed the protocol-level completion requirement. The repository reports
-that as a failure rather than converting partial progress into success.
+The first hosted attempt established API connectivity and strict parsing, but
+the model repeatedly produced invalid `task.complete` targets. A later
+three-task pilot passed only 2/3 task oracles: one task made the requested file
+change but still failed the protocol-level completion requirement. The current
+source-bound rerun passed 3/3, but the repository preserves the 2/3 result as a
+failure rather than converting partial progress into success or pooling runs.
 
 ### Evidence integrity needed lifecycle semantics
 
