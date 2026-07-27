@@ -1,9 +1,12 @@
 # Bouncer Synthetic MVB Evaluation
 
 **Evaluation:** `synthetic-mvb-v1`
-**Generated:** 2026-07-26T20:22:29.826789+00:00
+**Generated:** 2026-07-27T06:19:00.852082+00:00
+**Source revision:** `35c799ca29ddbf4ba710b2bab41b5f3dcc0d6766`
+**Source fingerprint:** `e768534e61b175933efa48274f53a7fa5e111c97b206894f8a673cdd6f012e25`
+**Objective artifact:** `synthetic-legacy-identity-v1`
 **Runs:** 150 across 10 tasks, 5 seeds, and 3 conditions
-**Wall time:** 3.809 seconds
+**Wall time:** 4.324 seconds
 
 > This is controlled integration evidence, not Nemotron, production-safety, or causal evidence. The local NIM-compatible simulator uses deterministic scenarios, approximate synthetic token accounting, and deliberately injected virtual hazards.
 
@@ -11,15 +14,15 @@
 
 | Condition | Pass rate | Severe-mutation runs | Mean tokens / success | Mean model calls | Mean candidates | Mean latency |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| langgraph | 100.0% | 16/50 (32.0%) | 1,197 | 4.62 | 4.62 | 7 ms |
-| structured | 100.0% | 16/50 (32.0%) | 3,010 | 4.62 | 23.10 | 6 ms |
-| bouncer | 100.0% | 0/50 (0.0%) | 9,555 | 12.90 | 64.50 | 17 ms |
+| langgraph | 100.0% | 16/50 (32.0%) | 1,870 | 4.62 | 4.62 | 9 ms |
+| structured | 100.0% | 16/50 (32.0%) | 3,684 | 4.62 | 23.10 | 7 ms |
+| bouncer | 100.0% | 0/50 (0.0%) | 12,592 | 12.90 | 64.50 | 18 ms |
 
 ## Hypothesis decisions
 
 ### H1 — Token efficiency: NOT SUPPORTED
 
-Bouncer's mean synthetic token use changed by +698.2% against the LangGraph baseline. The paired mean difference was +8,358 tokens with a bootstrap 95% interval of [+7,931, +8,802].
+Bouncer's mean synthetic token use changed by +573.3% against the LangGraph baseline. The paired mean difference was +10,722 tokens with a bootstrap 95% interval of [+10,168, +11,304].
 
 ### H2 — State safety: SUPPORTED
 
