@@ -1,15 +1,13 @@
 module bouncer
 
-go 1.23.0
-
-toolchain go1.23.2
+go 1.25.0
 
 require (
 	go.opentelemetry.io/otel v1.38.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0
 	go.opentelemetry.io/otel/sdk v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
-	golang.org/x/sys v0.35.0
+	golang.org/x/sys v0.47.0
 )
 
 require (
