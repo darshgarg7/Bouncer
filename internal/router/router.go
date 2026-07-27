@@ -19,18 +19,20 @@ type NormalizedObjectives struct {
 }
 
 type RankedCandidate struct {
-	Candidate  action.Candidate     `json:"candidate"`
-	Rank       int                  `json:"rank"`
-	Crowding   float64              `json:"crowding_distance"`
-	Normalized NormalizedObjectives `json:"normalized_objectives"`
+	Candidate         action.Candidate     `json:"candidate"`
+	RoutingObjectives action.Objectives    `json:"routing_objectives"`
+	Rank              int                  `json:"rank"`
+	Crowding          float64              `json:"crowding_distance"`
+	Normalized        NormalizedObjectives `json:"normalized_objectives"`
 }
 
 type Selection struct {
-	Selected             action.Candidate  `json:"selected"`
-	Ranked               []RankedCandidate `json:"ranked"`
-	Strategy             string            `json:"strategy"`
-	SelectionProbability float64           `json:"selection_probability"`
-	SelectionScore       float64           `json:"selection_score"`
+	Selected                  action.Candidate  `json:"selected"`
+	SelectedRoutingObjectives action.Objectives `json:"selected_routing_objectives"`
+	Ranked                    []RankedCandidate `json:"ranked"`
+	Strategy                  string            `json:"strategy"`
+	SelectionProbability      float64           `json:"selection_probability"`
+	SelectionScore            float64           `json:"selection_score"`
 }
 
 type Weights struct {
@@ -70,18 +72,18 @@ func DefaultConfig() Config {
 	}
 }
 
-func Select(candidates []action.Candidate) (Selection, error) {
+func Select(candidates []action.ScoredCandidate) (Selection, error) {
 	return SelectWithConfig(candidates, DefaultConfig())
 }
 
-func SelectWithConfig(candidates []action.Candidate, config Config) (Selection, error) {
+func SelectWithConfig(candidates []action.ScoredCandidate, config Config) (Selection, error) {
 	config = withDefaults(config)
 	if err := config.Validate(); err != nil {
 		return Selection{}, err
 	}
-	eligible := make([]action.Candidate, 0, len(candidates))
+	eligible := make([]action.ScoredCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
-		if candidate.EstimatedObjectives.SafetyRisk <= config.RiskCeiling {
+		if candidate.RoutingObjectives.SafetyRisk <= config.RiskCeiling {
 			eligible = append(eligible, candidate)
 		}
 	}
@@ -104,7 +106,7 @@ func SelectWithConfig(candidates []action.Candidate, config Config) (Selection, 
 	switch config.Strategy {
 	case StrategyLexicographic:
 		sort.SliceStable(ordered, func(i, j int) bool {
-			return lessLexicographic(ordered[i].Candidate, ordered[j].Candidate)
+			return lessLexicographic(rankedScore(ordered[i]), rankedScore(ordered[j]))
 		})
 	case StrategyWeighted:
 		sortByUtility(ordered, config.Weights)
@@ -135,7 +137,7 @@ func SelectWithConfig(candidates []action.Candidate, config Config) (Selection, 
 			}
 		}
 		sort.SliceStable(front, func(i, j int) bool {
-			return lessLexicographic(front[i].Candidate, front[j].Candidate)
+			return lessLexicographic(rankedScore(front[i]), rankedScore(front[j]))
 		})
 		ordered = front
 		if len(ordered) > 1 {
@@ -159,12 +161,14 @@ func SelectWithConfig(candidates []action.Candidate, config Config) (Selection, 
 			return ordered[i].Candidate.CandidateID < ordered[j].Candidate.CandidateID
 		})
 	case StrategyFirstValid:
-		selection.Selected = eligible[0]
+		selection.Selected = eligible[0].Candidate
+		selection.SelectedRoutingObjectives = eligible[0].RoutingObjectives
 		return selection, nil
 	default:
 		return Selection{}, fmt.Errorf("unsupported routing strategy %q", config.Strategy)
 	}
 	selection.Selected = ordered[0].Candidate
+	selection.SelectedRoutingObjectives = ordered[0].RoutingObjectives
 	return selection, nil
 }
 
@@ -216,7 +220,7 @@ func withDefaults(config Config) Config {
 // DiversitySpread returns the largest pairwise Euclidean distance after each
 // objective is min-max normalized. The result is in [0, 1]; zero means that
 // fewer than two distinct objective vectors were observed.
-func DiversitySpread(candidates []action.Candidate) float64 {
+func DiversitySpread(candidates []action.ScoredCandidate) float64 {
 	if len(candidates) < 2 {
 		return 0
 	}
@@ -234,9 +238,9 @@ func DiversitySpread(candidates []action.Candidate) float64 {
 	return maximum
 }
 
-func lessLexicographic(left, right action.Candidate) bool {
-	leftObjectives := left.EstimatedObjectives
-	rightObjectives := right.EstimatedObjectives
+func lessLexicographic(left, right action.ScoredCandidate) bool {
+	leftObjectives := left.RoutingObjectives
+	rightObjectives := right.RoutingObjectives
 	if leftObjectives.SafetyRisk != rightObjectives.SafetyRisk {
 		return leftObjectives.SafetyRisk < rightObjectives.SafetyRisk
 	}
@@ -246,7 +250,7 @@ func lessLexicographic(left, right action.Candidate) bool {
 	if leftObjectives.LatencyMS != rightObjectives.LatencyMS {
 		return leftObjectives.LatencyMS < rightObjectives.LatencyMS
 	}
-	return left.CandidateID < right.CandidateID
+	return left.Candidate.CandidateID < right.Candidate.CandidateID
 }
 
 func sortByUtility(candidates []RankedCandidate, weights Weights) {
@@ -256,7 +260,7 @@ func sortByUtility(candidates []RankedCandidate, weights Weights) {
 		if left != right {
 			return left < right
 		}
-		return lessLexicographic(candidates[i].Candidate, candidates[j].Candidate)
+		return lessLexicographic(rankedScore(candidates[i]), rankedScore(candidates[j]))
 	})
 }
 
@@ -266,7 +270,7 @@ func utility(objectives NormalizedObjectives, weights Weights) float64 {
 		objectives.SafetyRisk*weights.SafetyRisk
 }
 
-func Rank(candidates []action.Candidate) ([]RankedCandidate, error) {
+func Rank(candidates []action.ScoredCandidate) ([]RankedCandidate, error) {
 	unique, err := Deduplicate(candidates)
 	if err != nil {
 		return nil, err
@@ -290,10 +294,11 @@ func Rank(candidates []action.Candidate) ([]RankedCandidate, error) {
 	ranked := make([]RankedCandidate, len(unique))
 	for index := range unique {
 		ranked[index] = RankedCandidate{
-			Candidate:  unique[index],
-			Rank:       ranks[index],
-			Crowding:   crowding[index],
-			Normalized: normalized[index],
+			Candidate:         unique[index].Candidate,
+			RoutingObjectives: unique[index].RoutingObjectives,
+			Rank:              ranks[index],
+			Crowding:          crowding[index],
+			Normalized:        normalized[index],
 		}
 	}
 	sort.SliceStable(ranked, func(i, j int) bool {
@@ -302,24 +307,22 @@ func Rank(candidates []action.Candidate) ([]RankedCandidate, error) {
 	return ranked, nil
 }
 
-func Deduplicate(candidates []action.Candidate) ([]action.Candidate, error) {
+func Deduplicate(candidates []action.ScoredCandidate) ([]action.ScoredCandidate, error) {
 	seen := make(map[string]struct{}, len(candidates))
-	unique := make([]action.Candidate, 0, len(candidates))
+	unique := make([]action.ScoredCandidate, 0, len(candidates))
 	for index, candidate := range candidates {
 		payload := struct {
-			OperationClass       string            `json:"operation_class"`
-			Tool                 string            `json:"tool"`
-			Target               string            `json:"target"`
-			Arguments            map[string]any    `json:"arguments"`
-			DeclaredDependencies []string          `json:"declared_dependencies"`
-			EstimatedObjectives  action.Objectives `json:"estimated_objectives"`
+			OperationClass       string         `json:"operation_class"`
+			Tool                 string         `json:"tool"`
+			Target               string         `json:"target"`
+			Arguments            map[string]any `json:"arguments"`
+			DeclaredDependencies []string       `json:"declared_dependencies"`
 		}{
-			OperationClass:       candidate.OperationClass,
-			Tool:                 candidate.Tool,
-			Target:               candidate.Target,
-			Arguments:            candidate.Arguments,
-			DeclaredDependencies: candidate.DeclaredDependencies,
-			EstimatedObjectives:  candidate.EstimatedObjectives,
+			OperationClass:       candidate.Candidate.OperationClass,
+			Tool:                 candidate.Candidate.Tool,
+			Target:               candidate.Candidate.Target,
+			Arguments:            candidate.Candidate.Arguments,
+			DeclaredDependencies: candidate.Candidate.DeclaredDependencies,
 		}
 		encoded, err := json.Marshal(payload)
 		if err != nil {
@@ -335,15 +338,15 @@ func Deduplicate(candidates []action.Candidate) ([]action.Candidate, error) {
 	return unique, nil
 }
 
-func normalize(candidates []action.Candidate) []NormalizedObjectives {
+func normalize(candidates []action.ScoredCandidate) []NormalizedObjectives {
 	mins := [3]float64{math.Inf(1), math.Inf(1), math.Inf(1)}
 	maxs := [3]float64{math.Inf(-1), math.Inf(-1), math.Inf(-1)}
 	values := make([][3]float64, len(candidates))
 	for index, candidate := range candidates {
 		values[index] = [3]float64{
-			candidate.EstimatedObjectives.LatencyMS,
-			candidate.EstimatedObjectives.CostUnits,
-			candidate.EstimatedObjectives.SafetyRisk,
+			candidate.RoutingObjectives.LatencyMS,
+			candidate.RoutingObjectives.CostUnits,
+			candidate.RoutingObjectives.SafetyRisk,
 		}
 		for objective := range 3 {
 			mins[objective] = math.Min(mins[objective], values[index][objective])
@@ -368,7 +371,7 @@ func normalize(candidates []action.Candidate) []NormalizedObjectives {
 	return result
 }
 
-func nondominatedRanks(candidates []action.Candidate) ([]int, [][]int) {
+func nondominatedRanks(candidates []action.ScoredCandidate) ([]int, [][]int) {
 	dominatesList := make([][]int, len(candidates))
 	dominatedByCount := make([]int, len(candidates))
 	firstFront := make([]int, 0, len(candidates))
@@ -377,9 +380,9 @@ func nondominatedRanks(candidates []action.Candidate) ([]int, [][]int) {
 			if left == right {
 				continue
 			}
-			if dominates(candidates[left].EstimatedObjectives, candidates[right].EstimatedObjectives) {
+			if dominates(candidates[left].RoutingObjectives, candidates[right].RoutingObjectives) {
 				dominatesList[left] = append(dominatesList[left], right)
-			} else if dominates(candidates[right].EstimatedObjectives, candidates[left].EstimatedObjectives) {
+			} else if dominates(candidates[right].RoutingObjectives, candidates[left].RoutingObjectives) {
 				dominatedByCount[left]++
 			}
 		}
@@ -423,7 +426,12 @@ func dominates(left, right action.Objectives) bool {
 	return strictlyBetter
 }
 
-func assignCrowding(front []int, normalized []NormalizedObjectives, candidates []action.Candidate, distances []float64) {
+func assignCrowding(
+	front []int,
+	normalized []NormalizedObjectives,
+	candidates []action.ScoredCandidate,
+	distances []float64,
+) {
 	if len(front) == 0 {
 		return
 	}
@@ -449,7 +457,7 @@ func assignCrowding(front []int, normalized []NormalizedObjectives, candidates [
 			if left != right {
 				return left < right
 			}
-			return candidates[ordered[i]].CandidateID < candidates[ordered[j]].CandidateID
+			return candidates[ordered[i]].Candidate.CandidateID < candidates[ordered[j]].Candidate.CandidateID
 		})
 		minimum := values(ordered[0], objective)
 		maximum := values(ordered[len(ordered)-1], objective)
@@ -465,5 +473,12 @@ func assignCrowding(front []int, normalized []NormalizedObjectives, candidates [
 			}
 			distances[index] += values(ordered[position+1], objective) - values(ordered[position-1], objective)
 		}
+	}
+}
+
+func rankedScore(candidate RankedCandidate) action.ScoredCandidate {
+	return action.ScoredCandidate{
+		Candidate:         candidate.Candidate,
+		RoutingObjectives: candidate.RoutingObjectives,
 	}
 }

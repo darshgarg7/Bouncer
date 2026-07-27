@@ -32,6 +32,7 @@ for task_number in 001 002 003; do
     -manifest "$repository_root/configs/run-manifest.nvidia-hosted.json" \
     -task "$repository_root/benchmarks/tasks/$task_id.json" \
     -project-root "$repository_root" \
+    -objective-calibration "$repository_root/configs/objective-calibration.bootstrap.json" \
     -seed 42 \
     -executor-mode virtual \
     -event-log "$output_directory/$task_id-events.jsonl" \

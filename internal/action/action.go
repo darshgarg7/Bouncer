@@ -42,6 +42,13 @@ type Candidate struct {
 	EstimatedObjectives  Objectives     `json:"estimated_objectives"`
 }
 
+// ScoredCandidate keeps untrusted provider estimates separate from the
+// objectives that the trusted router is allowed to consume.
+type ScoredCandidate struct {
+	Candidate         Candidate  `json:"candidate"`
+	RoutingObjectives Objectives `json:"routing_objectives"`
+}
+
 type Beam struct {
 	Actions []Candidate `json:"actions"`
 }
@@ -154,6 +161,17 @@ func (o Objectives) Validate() error {
 	}
 	if o.SafetyRisk > 1 {
 		return errors.New("safety_risk must be between 0 and 1")
+	}
+	return nil
+}
+
+// Validate checks both the provider candidate and its trusted routing score.
+func (s ScoredCandidate) Validate() error {
+	if err := s.Candidate.Validate(); err != nil {
+		return err
+	}
+	if err := s.RoutingObjectives.Validate(); err != nil {
+		return fmt.Errorf("routing objectives: %w", err)
 	}
 	return nil
 }

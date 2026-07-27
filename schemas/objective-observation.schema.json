@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/objective-observation.schema.json",
+  "title": "Bouncer measured objective observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operation_class", "estimated_objectives", "measured_objectives"],
+  "properties": {
+    "operation_class": {"type": "string", "minLength": 1},
+    "estimated_objectives": {"$ref": "#/$defs/estimated"},
+    "measured_objectives": {"$ref": "#/$defs/measured"}
+  },
+  "$defs": {
+    "estimated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency_ms", "cost_units", "safety_risk"],
+      "properties": {
+        "latency_ms": {"type": "number", "minimum": 0},
+        "cost_units": {"type": "number", "minimum": 0},
+        "safety_risk": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "measured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency_ms", "cost_units", "safety_risk"],
+      "properties": {
+        "latency_ms": {"type": "number", "minimum": 0},
+        "cost_units": {"type": "number", "minimum": 0},
+        "safety_risk": {"enum": [0, 1]}
+      }
+    }
+  }
+}

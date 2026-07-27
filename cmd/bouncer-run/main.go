@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"bouncer/internal/benchmark"
+	"bouncer/internal/calibration"
 	"bouncer/internal/config"
 	"bouncer/internal/control"
 	"bouncer/internal/eventlog"
@@ -55,13 +56,14 @@ type runOptions struct {
 	ExplorationEpsilon   float64
 	OTLPEndpoint         string
 	TraceSampleRatio     float64
+	ObjectiveCalibration string
 }
 
 func main() {
 	manifestPath := flag.String("manifest", "configs/run-manifest.example.json", "path to run manifest")
 	taskPath := flag.String("task", "benchmarks/tasks/task-001.json", "path to task")
 	endpoint := flag.String("endpoint", "", "override manifest model endpoint")
-	projectRoot := flag.String("project-root", ".", "repository root used by the Python projector")
+	projectRoot := flag.String("project-root", ".", "repository root used by policy and calibration assets")
 	outputPath := flag.String("output", "", "optional result JSON path")
 	eventLogPath := flag.String("event-log", "", "new append-only JSONL trace path")
 	seed := flag.Int64("seed", -1, "override manifest seed")
@@ -77,7 +79,7 @@ func main() {
 		router.StrategyLexicographic,
 		"routing policy: first_valid, lexicographic, weighted_utility, pareto_utility, random_safe, epsilon_pareto, or legacy_crowding",
 	)
-	riskCeiling := flag.Float64("risk-ceiling", 1, "maximum eligible estimated safety risk in [0,1]")
+	riskCeiling := flag.Float64("risk-ceiling", 1, "maximum eligible calibrated safety risk in [0,1]")
 	latencyWeight := flag.Float64("latency-weight", 0.2, "normalized latency weight for utility routing")
 	costWeight := flag.Float64("cost-weight", 0.2, "normalized cost weight for utility routing")
 	riskWeight := flag.Float64("risk-weight", 0.6, "normalized safety-risk weight for utility routing")
@@ -90,6 +92,11 @@ func main() {
 	explorationEpsilon := flag.Float64("exploration-epsilon", 0.05, "exploration rate for epsilon_pareto routing")
 	otlpEndpoint := flag.String("otlp-endpoint", "", "optional OTLP/HTTP traces endpoint")
 	traceSampleRatio := flag.Float64("trace-sample-ratio", 1, "OpenTelemetry trace sample ratio in [0,1]")
+	objectiveCalibration := flag.String(
+		"objective-calibration",
+		"configs/objective-calibration.bootstrap.json",
+		"path to the trusted objective calibration artifact",
+	)
 	flag.Parse()
 	if err := run(runOptions{
 		ManifestPath:         *manifestPath,
@@ -119,6 +126,7 @@ func main() {
 		ExplorationEpsilon:   *explorationEpsilon,
 		OTLPEndpoint:         *otlpEndpoint,
 		TraceSampleRatio:     *traceSampleRatio,
+		ObjectiveCalibration: *objectiveCalibration,
 	}); err != nil {
 		log.Printf("bouncer run failed: %v", err)
 		os.Exit(1)
@@ -164,6 +172,17 @@ func run(options runOptions) (runErr error) {
 	}
 	policyDAGPath := filepath.Join(options.ProjectRoot, "configs/skill_dag.json")
 	policyHash, err := hashFile(policyDAGPath)
+	if err != nil {
+		return err
+	}
+	calibrationPath := options.ObjectiveCalibration
+	if calibrationPath == "" {
+		calibrationPath = "configs/objective-calibration.bootstrap.json"
+	}
+	if !filepath.IsAbs(calibrationPath) {
+		calibrationPath = filepath.Join(options.ProjectRoot, calibrationPath)
+	}
+	objectiveCalibrator, err := calibration.Load(calibrationPath)
 	if err != nil {
 		return err
 	}
@@ -294,17 +313,18 @@ func run(options runOptions) (runErr error) {
 			TaskID:    task.TaskID,
 			Seed:      seed,
 			Payload: map[string]any{
-				"model":           manifest.Model.ID,
-				"provider":        providerKind,
-				"endpoint":        manifest.Model.Endpoint,
-				"proposers":       proposerCount,
-				"beam_width":      beamWidth,
-				"policy_engine":   options.PolicyEngine,
-				"executor_mode":   options.ExecutorMode,
-				"manifest_sha256": manifestHash,
-				"task_sha256":     taskHash,
-				"policy_sha256":   policyHash,
-				"routing":         routerConfig,
+				"model":                 manifest.Model.ID,
+				"provider":              providerKind,
+				"endpoint":              manifest.Model.Endpoint,
+				"proposers":             proposerCount,
+				"beam_width":            beamWidth,
+				"policy_engine":         options.PolicyEngine,
+				"executor_mode":         options.ExecutorMode,
+				"manifest_sha256":       manifestHash,
+				"task_sha256":           taskHash,
+				"policy_sha256":         policyHash,
+				"routing":               routerConfig,
+				"objective_calibration": objectiveCalibrator.Metadata(),
 				"adaptive_proposals": map[string]any{
 					"enabled":        options.AdaptiveProposals,
 					"initial_count":  options.InitialProposers,
@@ -358,6 +378,7 @@ func run(options runOptions) (runErr error) {
 			Timeout:       manifest.Proposal.Timeout(),
 		},
 		Projector:    batchProjector,
+		Calibrator:   objectiveCalibrator,
 		Executor:     actionExecutor,
 		TraceSink:    traceSink,
 		RouterConfig: routerConfig,

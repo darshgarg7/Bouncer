@@ -16,6 +16,7 @@ import (
 
 	"bouncer/internal/action"
 	"bouncer/internal/benchmark"
+	"bouncer/internal/calibration"
 	"bouncer/internal/executor"
 	"bouncer/internal/harness"
 	"bouncer/internal/nimclient"
@@ -26,6 +27,7 @@ import (
 type Loop struct {
 	Coordinator      harness.Coordinator
 	Projector        projector.BatchProjector
+	Calibrator       calibration.Calibrator
 	Executor         executor.Executor
 	TraceSink        TraceSink
 	RouterConfig     router.Config
@@ -51,28 +53,29 @@ type TraceEvent struct {
 }
 
 type Result struct {
-	Condition            string          `json:"condition"`
-	TaskID               string          `json:"task_id"`
-	Seed                 int64           `json:"seed"`
-	Passed               bool            `json:"passed"`
-	TaskComplete         bool            `json:"task_complete"`
-	OracleFailures       []string        `json:"oracle_failures"`
-	Turns                int             `json:"turns"`
-	ModelCalls           int             `json:"model_calls"`
-	PromptTokens         int             `json:"prompt_tokens"`
-	CompletionTokens     int             `json:"completion_tokens"`
-	ReasoningTokens      int             `json:"reasoning_tokens"`
-	TotalTokens          int             `json:"total_tokens"`
-	GeneratedCandidates  int             `json:"generated_candidates"`
-	ConstraintRejections int             `json:"constraint_rejections"`
-	ExecutedActions      int             `json:"executed_actions"`
-	SevereMutations      int             `json:"severe_mutations"`
-	RoutingStrategy      string          `json:"routing_strategy"`
-	AdaptiveProposals    bool            `json:"adaptive_proposals"`
-	ProposalExpansions   int             `json:"proposal_expansions"`
-	DurationMS           int64           `json:"duration_ms"`
-	FinalState           benchmark.State `json:"final_state"`
-	Trace                []TraceEvent    `json:"trace"`
+	Condition            string               `json:"condition"`
+	TaskID               string               `json:"task_id"`
+	Seed                 int64                `json:"seed"`
+	Passed               bool                 `json:"passed"`
+	TaskComplete         bool                 `json:"task_complete"`
+	OracleFailures       []string             `json:"oracle_failures"`
+	Turns                int                  `json:"turns"`
+	ModelCalls           int                  `json:"model_calls"`
+	PromptTokens         int                  `json:"prompt_tokens"`
+	CompletionTokens     int                  `json:"completion_tokens"`
+	ReasoningTokens      int                  `json:"reasoning_tokens"`
+	TotalTokens          int                  `json:"total_tokens"`
+	GeneratedCandidates  int                  `json:"generated_candidates"`
+	ConstraintRejections int                  `json:"constraint_rejections"`
+	ExecutedActions      int                  `json:"executed_actions"`
+	SevereMutations      int                  `json:"severe_mutations"`
+	RoutingStrategy      string               `json:"routing_strategy"`
+	ObjectiveCalibration calibration.Metadata `json:"objective_calibration"`
+	AdaptiveProposals    bool                 `json:"adaptive_proposals"`
+	ProposalExpansions   int                  `json:"proposal_expansions"`
+	DurationMS           int64                `json:"duration_ms"`
+	FinalState           benchmark.State      `json:"final_state"`
+	Trace                []TraceEvent         `json:"trace"`
 }
 
 func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result, error) {
@@ -94,6 +97,9 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 	if l.Executor == nil {
 		return Result{}, fmt.Errorf("control loop executor is required")
 	}
+	if l.Calibrator == nil {
+		return Result{}, fmt.Errorf("control loop objective calibrator is required")
+	}
 	routerConfig := l.RouterConfig
 	if routerConfig == (router.Config{}) {
 		routerConfig = router.DefaultConfig()
@@ -112,17 +118,20 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 		return Result{}, fmt.Errorf("encode task policy: %w", err)
 	}
 	result := Result{
-		Condition:         "bouncer",
-		TaskID:            task.TaskID,
-		Seed:              seed,
-		OracleFailures:    []string{},
-		RoutingStrategy:   routerConfig.Strategy,
-		AdaptiveProposals: adaptive.Enabled,
-		FinalState:        state,
-		Trace:             []TraceEvent{},
+		Condition:            "bouncer",
+		TaskID:               task.TaskID,
+		Seed:                 seed,
+		OracleFailures:       []string{},
+		RoutingStrategy:      routerConfig.Strategy,
+		ObjectiveCalibration: l.Calibrator.Metadata(),
+		AdaptiveProposals:    adaptive.Enabled,
+		FinalState:           state,
+		Trace:                []TraceEvent{},
 	}
 
 	for turn := 0; turn < l.MaxTurns && !state.TaskComplete; turn++ {
+		// A turn starts from a complete typed snapshot. Provider output cannot
+		// mutate state until it has passed projection and routing below.
 		stateJSON, err := state.JSON()
 		if err != nil {
 			return Result{}, err
@@ -171,8 +180,15 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 		if err != nil {
 			return Result{}, err
 		}
+		routingBatch := calibration.Batch{}
+		if len(valid) > 0 {
+			routingBatch, err = l.Calibrator.Calibrate(valid)
+			if err != nil {
+				return Result{}, fmt.Errorf("turn %d calibrate objectives: %w", turn, err)
+			}
+		}
 		if adaptive.Enabled && initialCount < l.Coordinator.ProposerCount {
-			spread := router.DiversitySpread(valid)
+			spread := router.DiversitySpread(routingBatch.Candidates)
 			reasons := expansionReasons(valid, spread, adaptive)
 			if len(reasons) > 0 {
 				remaining := l.Coordinator.ProposerCount - initialCount
@@ -209,14 +225,21 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 				}
 				valid = append(valid, extraValid...)
 				feedback = append(feedback, extraFeedback...)
+				if len(valid) > 0 {
+					routingBatch, err = l.Calibrator.Calibrate(valid)
+					if err != nil {
+						return Result{}, fmt.Errorf("turn %d calibrate expanded objectives: %w", turn, err)
+					}
+				}
 			}
 		}
 		if len(valid) == 0 {
+			// Rejections become input to the next proposal turn; they are never
+			// converted into a best-effort execution fallback.
 			sort.Strings(feedback)
 			state.ConstraintFeedback = feedback
 			continue
 		}
-
 		turnRouterConfig := routerConfig
 		turnRouterConfig.RandomSeed = seed + int64(turn)
 		routingContext, routingSpan := otel.Tracer("bouncer/control").Start(
@@ -224,7 +247,7 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 			"candidate.route",
 			trace.WithAttributes(attribute.String("bouncer.routing.strategy", turnRouterConfig.Strategy)),
 		)
-		selection, err := router.SelectWithConfig(valid, turnRouterConfig)
+		selection, err := router.SelectWithConfig(routingBatch.Candidates, turnRouterConfig)
 		if err != nil {
 			markSpanError(routingSpan, err)
 			routingSpan.End()
@@ -235,6 +258,10 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 			StepID:    turn,
 			Payload: map[string]any{
 				"action_id":             selection.Selected.CandidateID,
+				"objective_source":      "trusted_calibration_artifact",
+				"objective_calibration": l.Calibrator.Metadata(),
+				"objective_records":     routingBatch.Records,
+				"routing_objectives":    selection.SelectedRoutingObjectives,
 				"strategy":              selection.Strategy,
 				"selection_probability": selection.SelectionProbability,
 				"selection_score":       selection.SelectionScore,

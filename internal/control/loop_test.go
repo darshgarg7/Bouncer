@@ -10,6 +10,7 @@ import (
 
 	"bouncer/internal/action"
 	"bouncer/internal/benchmark"
+	"bouncer/internal/calibration"
 	"bouncer/internal/executor"
 	"bouncer/internal/harness"
 	"bouncer/internal/nimclient"
@@ -145,10 +146,43 @@ func testLoop(proposer harness.Proposer, batchProjector projector.BatchProjector
 			ProposerCount: 3,
 			Timeout:       time.Second,
 		},
-		Projector: batchProjector,
-		Executor:  executor.Virtual{},
-		MaxTurns:  3,
+		Projector:  batchProjector,
+		Calibrator: testCalibrator(),
+		Executor:   executor.Virtual{},
+		MaxTurns:   3,
 	}
+}
+
+func testCalibrator() calibration.Calibrator {
+	runtime, err := calibration.New(calibration.Artifact{
+		SchemaVersion: "0.1.0",
+		CalibrationID: "control-test-identity",
+		Provenance: calibration.Provenance{
+			Method: "test_fixture",
+		},
+		InputBounds: calibration.ObjectiveBounds{
+			LatencyMS:  calibration.Range{Minimum: 0, Maximum: 1000},
+			CostUnits:  calibration.Range{Minimum: 0, Maximum: 1000},
+			SafetyRisk: calibration.Range{Minimum: 0, Maximum: 1},
+		},
+		Transforms: calibration.Transforms{
+			LatencyMS:  calibration.AffineTransform{Scale: 1},
+			CostUnits:  calibration.AffineTransform{Scale: 1},
+			SafetyRisk: calibration.PlattTransform{Slope: 1},
+		},
+		ModelInfluence: calibration.ModelInfluence{
+			LatencyMS:  1,
+			CostUnits:  1,
+			SafetyRisk: 1,
+		},
+		OperationPriors: map[string]action.Objectives{
+			"*": {LatencyMS: 1, CostUnits: 1, SafetyRisk: 0.1},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return runtime
 }
 
 func TestLoopCompletesTaskAndAggregatesTelemetry(t *testing.T) {
@@ -178,12 +212,17 @@ func TestLoopCompletesTaskAndAggregatesTelemetry(t *testing.T) {
 	if result.RoutingStrategy != router.StrategyLexicographic || result.AdaptiveProposals {
 		t.Fatalf("unexpected routing metadata: %+v", result)
 	}
+	if result.ObjectiveCalibration.CalibrationID != "control-test-identity" ||
+		result.ObjectiveCalibration.ArtifactSHA256 == "" {
+		t.Fatalf("missing objective calibration evidence: %+v", result.ObjectiveCalibration)
+	}
 	for _, event := range result.Trace {
 		if event.EventType != "candidate.selected" {
 			continue
 		}
 		if event.Payload["strategy"] != router.StrategyLexicographic ||
-			event.Payload["selection_probability"] != 1.0 {
+			event.Payload["selection_probability"] != 1.0 ||
+			event.Payload["objective_source"] != "trusted_calibration_artifact" {
 			t.Fatalf("unexpected selection evidence: %+v", event.Payload)
 		}
 	}
@@ -286,6 +325,14 @@ func TestLoopRejectsInvalidConfiguration(t *testing.T) {
 		MaxTurns:  1,
 	}).Run(context.Background(), testTask(), 1)
 	if err == nil || !strings.Contains(err.Error(), "executor is required") {
+		t.Fatalf("got error %v", err)
+	}
+	_, err = (Loop{
+		Projector: projectorFunc(allowFirstCandidate),
+		Executor:  executor.Virtual{},
+		MaxTurns:  1,
+	}).Run(context.Background(), testTask(), 1)
+	if err == nil || !strings.Contains(err.Error(), "objective calibrator is required") {
 		t.Fatalf("got error %v", err)
 	}
 }

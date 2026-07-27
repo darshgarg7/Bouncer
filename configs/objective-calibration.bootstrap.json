@@ -1,0 +1,89 @@
+{
+  "schema_version": "0.1.0",
+  "calibration_id": "bootstrap-operation-priors-v1",
+  "provenance": {
+    "method": "conservative_bootstrap_priors",
+    "sample_count": 0,
+    "validation_count": 0
+  },
+  "input_bounds": {
+    "latency_ms": {
+      "minimum": 0,
+      "maximum": 300000
+    },
+    "cost_units": {
+      "minimum": 0,
+      "maximum": 100
+    },
+    "safety_risk": {
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "transforms": {
+    "latency_ms": {
+      "scale": 1,
+      "offset": 0
+    },
+    "cost_units": {
+      "scale": 1,
+      "offset": 0
+    },
+    "safety_risk": {
+      "slope": 1,
+      "intercept": 0
+    }
+  },
+  "model_influence": {
+    "latency_ms": 0,
+    "cost_units": 0,
+    "safety_risk": 0
+  },
+  "operation_priors": {
+    "*": {
+      "latency_ms": 250,
+      "cost_units": 0.5,
+      "safety_risk": 0.5
+    },
+    "filesystem.read": {
+      "latency_ms": 30,
+      "cost_units": 0.05,
+      "safety_risk": 0.02
+    },
+    "filesystem.write": {
+      "latency_ms": 60,
+      "cost_units": 0.1,
+      "safety_risk": 0.15
+    },
+    "filesystem.delete": {
+      "latency_ms": 50,
+      "cost_units": 0.08,
+      "safety_risk": 0.65
+    },
+    "state.validate": {
+      "latency_ms": 40,
+      "cost_units": 0.08,
+      "safety_risk": 0.02
+    },
+    "state.backup": {
+      "latency_ms": 80,
+      "cost_units": 0.15,
+      "safety_risk": 0.03
+    },
+    "command.run": {
+      "latency_ms": 120,
+      "cost_units": 0.3,
+      "safety_risk": 0.25
+    },
+    "service.deploy": {
+      "latency_ms": 500,
+      "cost_units": 0.8,
+      "safety_risk": 0.45
+    },
+    "task.complete": {
+      "latency_ms": 10,
+      "cost_units": 0.01,
+      "safety_risk": 0.01
+    }
+  }
+}

@@ -8,7 +8,7 @@ import (
 )
 
 func TestRankAssignsNondominatedFronts(t *testing.T) {
-	candidates := []action.Candidate{
+	candidates := []action.ScoredCandidate{
 		candidate("a", "workspace/a", 1, 1, 0.1),
 		candidate("b", "workspace/b", 2, 2, 0.2),
 		candidate("c", "workspace/c", 1, 3, 0.3),
@@ -27,7 +27,7 @@ func TestRankAssignsNondominatedFronts(t *testing.T) {
 }
 
 func TestCrowdingPreservesBoundaryTradeoffs(t *testing.T) {
-	candidates := []action.Candidate{
+	candidates := []action.ScoredCandidate{
 		candidate("fast", "workspace/fast", 1, 3, 0.3),
 		candidate("middle", "workspace/middle", 2, 2, 0.2),
 		candidate("safe", "workspace/safe", 3, 1, 0.1),
@@ -51,18 +51,35 @@ func TestCrowdingPreservesBoundaryTradeoffs(t *testing.T) {
 func TestDeduplicateIgnoresCandidateID(t *testing.T) {
 	first := candidate("agent-1", "workspace/file", 1, 1, 0.1)
 	second := first
-	second.CandidateID = "agent-2"
-	unique, err := Deduplicate([]action.Candidate{first, second})
+	second.Candidate.CandidateID = "agent-2"
+	second.Candidate.EstimatedObjectives = action.Objectives{LatencyMS: 999, CostUnits: 99, SafetyRisk: 1}
+	second.RoutingObjectives = action.Objectives{LatencyMS: 999, CostUnits: 99, SafetyRisk: 1}
+	unique, err := Deduplicate([]action.ScoredCandidate{first, second})
 	if err != nil {
 		t.Fatalf("Deduplicate returned error: %v", err)
 	}
-	if len(unique) != 1 || unique[0].CandidateID != "agent-1" {
+	if len(unique) != 1 || unique[0].Candidate.CandidateID != "agent-1" {
 		t.Fatalf("unexpected unique candidates: %+v", unique)
 	}
 }
 
+func TestSelectUsesRoutingObjectivesInsteadOfRawEstimates(t *testing.T) {
+	providerFavorite := candidate("provider-favorite", "workspace/a", 1, 1, 0.01)
+	providerFavorite.RoutingObjectives = action.Objectives{LatencyMS: 10, CostUnits: 10, SafetyRisk: 0.9}
+	trustedFavorite := candidate("trusted-favorite", "workspace/b", 10, 10, 0.9)
+	trustedFavorite.RoutingObjectives = action.Objectives{LatencyMS: 1, CostUnits: 1, SafetyRisk: 0.01}
+
+	selection, err := Select([]action.ScoredCandidate{providerFavorite, trustedFavorite})
+	if err != nil {
+		t.Fatalf("Select returned error: %v", err)
+	}
+	if selection.Selected.CandidateID != "trusted-favorite" {
+		t.Fatalf("router followed raw provider estimates: %+v", selection)
+	}
+}
+
 func TestSelectUsesCandidateIDForExactTie(t *testing.T) {
-	selection, err := Select([]action.Candidate{
+	selection, err := Select([]action.ScoredCandidate{
 		candidate("z", "workspace/z", 1, 1, 0.1),
 		candidate("a", "workspace/a", 1, 1, 0.1),
 	})
@@ -81,7 +98,7 @@ func TestSelectRejectsEmptySet(t *testing.T) {
 }
 
 func TestSelectStrategiesHaveExplicitSemantics(t *testing.T) {
-	candidates := []action.Candidate{
+	candidates := []action.ScoredCandidate{
 		candidate("fast-risky", "workspace/fast", 1, 1, 0.8),
 		candidate("balanced", "workspace/balanced", 4, 4, 0.2),
 		candidate("slow-safe", "workspace/safe", 8, 8, 0.1),
@@ -114,7 +131,7 @@ func TestSelectStrategiesHaveExplicitSemantics(t *testing.T) {
 }
 
 func TestFirstValidPreservesProposalOrder(t *testing.T) {
-	selection, err := SelectWithConfig([]action.Candidate{
+	selection, err := SelectWithConfig([]action.ScoredCandidate{
 		candidate("agent-2:candidate", "workspace/b", 1, 1, 0.9),
 		candidate("agent-1:candidate", "workspace/a", 9, 9, 0.1),
 	}, Config{Strategy: StrategyFirstValid, RiskCeiling: 1})
@@ -127,7 +144,7 @@ func TestFirstValidPreservesProposalOrder(t *testing.T) {
 }
 
 func TestParetoUtilityExcludesDominatedCandidates(t *testing.T) {
-	selection, err := SelectWithConfig([]action.Candidate{
+	selection, err := SelectWithConfig([]action.ScoredCandidate{
 		candidate("dominant", "workspace/a", 1, 1, 0.1),
 		candidate("dominated", "workspace/b", 2, 2, 0.2),
 	}, Config{
@@ -144,7 +161,7 @@ func TestParetoUtilityExcludesDominatedCandidates(t *testing.T) {
 }
 
 func TestRandomSafeIsSeededAndReportsPropensity(t *testing.T) {
-	candidates := []action.Candidate{
+	candidates := []action.ScoredCandidate{
 		candidate("a", "workspace/a", 1, 1, 0.1),
 		candidate("b", "workspace/b", 2, 2, 0.2),
 		candidate("c", "workspace/c", 3, 3, 0.3),
@@ -167,7 +184,7 @@ func TestRandomSafeIsSeededAndReportsPropensity(t *testing.T) {
 }
 
 func TestEpsilonParetoLogsExactBehaviorProbability(t *testing.T) {
-	candidates := []action.Candidate{
+	candidates := []action.ScoredCandidate{
 		candidate("fast", "workspace/fast", 1, 3, 0.3),
 		candidate("balanced", "workspace/balanced", 2, 2, 0.2),
 		candidate("safe", "workspace/safe", 3, 1, 0.1),
@@ -202,7 +219,7 @@ func TestEpsilonParetoLogsExactBehaviorProbability(t *testing.T) {
 }
 
 func TestRiskCeilingCanBeZero(t *testing.T) {
-	selection, err := SelectWithConfig([]action.Candidate{
+	selection, err := SelectWithConfig([]action.ScoredCandidate{
 		candidate("zero", "workspace/zero", 2, 2, 0),
 		candidate("nonzero", "workspace/nonzero", 1, 1, 0.01),
 	}, Config{Strategy: StrategyLexicographic, RiskCeiling: 0})
@@ -215,7 +232,7 @@ func TestRiskCeilingCanBeZero(t *testing.T) {
 }
 
 func TestSelectRejectsInvalidConfiguration(t *testing.T) {
-	candidates := []action.Candidate{candidate("a", "workspace/a", 1, 1, 0.1)}
+	candidates := []action.ScoredCandidate{candidate("a", "workspace/a", 1, 1, 0.1)}
 	for name, config := range map[string]Config{
 		"strategy": {Strategy: "unknown", RiskCeiling: 1},
 		"ceiling":  {Strategy: StrategyLexicographic, RiskCeiling: 2},
@@ -230,14 +247,14 @@ func TestSelectRejectsInvalidConfiguration(t *testing.T) {
 }
 
 func TestDiversitySpread(t *testing.T) {
-	identical := []action.Candidate{
+	identical := []action.ScoredCandidate{
 		candidate("a", "workspace/a", 1, 1, 0.1),
 		candidate("b", "workspace/b", 1, 1, 0.1),
 	}
 	if spread := DiversitySpread(identical); spread != 0 {
 		t.Fatalf("identical spread %v, want zero", spread)
 	}
-	diverse := []action.Candidate{
+	diverse := []action.ScoredCandidate{
 		candidate("a", "workspace/a", 0, 0, 0),
 		candidate("b", "workspace/b", 1, 1, 1),
 	}
@@ -246,19 +263,23 @@ func TestDiversitySpread(t *testing.T) {
 	}
 }
 
-func candidate(id, target string, latency, cost, risk float64) action.Candidate {
-	return action.Candidate{
-		CandidateID:          id,
-		OperationClass:       "filesystem.read",
-		Tool:                 "read_file",
-		Target:               target,
-		Arguments:            map[string]any{},
-		DeclaredDependencies: []string{},
-		EstimatedObjectives: action.Objectives{
-			LatencyMS:  latency,
-			CostUnits:  cost,
-			SafetyRisk: risk,
+func candidate(id, target string, latency, cost, risk float64) action.ScoredCandidate {
+	objectives := action.Objectives{
+		LatencyMS:  latency,
+		CostUnits:  cost,
+		SafetyRisk: risk,
+	}
+	return action.ScoredCandidate{
+		Candidate: action.Candidate{
+			CandidateID:          id,
+			OperationClass:       "filesystem.read",
+			Tool:                 "read_file",
+			Target:               target,
+			Arguments:            map[string]any{},
+			DeclaredDependencies: []string{},
+			EstimatedObjectives:  objectives,
 		},
+		RoutingObjectives: objectives,
 	}
 }
 
@@ -275,7 +296,7 @@ func FuzzRankNeverPanics(f *testing.F) {
 		if math.IsNaN(risk) || math.IsInf(risk, 0) || risk < 0 || risk > 1 {
 			risk = 0
 		}
-		_, _ = Rank([]action.Candidate{
+		_, _ = Rank([]action.ScoredCandidate{
 			candidate("a", "workspace/a", latency, cost, risk),
 			candidate("b", "workspace/b", cost, latency, 1-risk),
 		})

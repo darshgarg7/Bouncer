@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/objective-calibration.schema.json",
+  "title": "Bouncer objective calibration artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "calibration_id",
+    "provenance",
+    "input_bounds",
+    "transforms",
+    "model_influence",
+    "operation_priors"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "calibration_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "sample_count", "validation_count"],
+      "properties": {
+        "method": {"type": "string", "minLength": 1},
+        "dataset_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "sample_count": {"type": "integer", "minimum": 0},
+        "validation_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "input_bounds": {"$ref": "#/$defs/objective_bounds"},
+    "transforms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency_ms", "cost_units", "safety_risk"],
+      "properties": {
+        "latency_ms": {"$ref": "#/$defs/affine"},
+        "cost_units": {"$ref": "#/$defs/affine"},
+        "safety_risk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["slope", "intercept"],
+          "properties": {
+            "slope": {"type": "number", "minimum": 0},
+            "intercept": {"type": "number"}
+          }
+        }
+      }
+    },
+    "model_influence": {"$ref": "#/$defs/unit_objectives"},
+    "operation_priors": {
+      "type": "object",
+      "minProperties": 1,
+      "required": ["*"],
+      "additionalProperties": {"$ref": "#/$defs/objectives"}
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": {"type": "number", "minimum": 0},
+        "maximum": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "objective_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency_ms", "cost_units", "safety_risk"],
+      "properties": {
+        "latency_ms": {"$ref": "#/$defs/range"},
+        "cost_units": {"$ref": "#/$defs/range"},
+        "safety_risk": {"$ref": "#/$defs/range"}
+      }
+    },
+    "affine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scale", "offset"],
+      "properties": {
+        "scale": {"type": "number", "minimum": 0},
+        "offset": {"type": "number"}
+      }
+    },
+    "unit_objectives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency_ms", "cost_units", "safety_risk"],
+      "properties": {
+        "latency_ms": {"type": "number", "minimum": 0, "maximum": 1},
+        "cost_units": {"type": "number", "minimum": 0, "maximum": 1},
+        "safety_risk": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "objectives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency_ms", "cost_units", "safety_risk"],
+      "properties": {
+        "latency_ms": {"type": "number", "minimum": 0},
+        "cost_units": {"type": "number", "minimum": 0},
+        "safety_risk": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

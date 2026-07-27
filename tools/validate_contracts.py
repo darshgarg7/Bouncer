@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -12,11 +13,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load(path: Path) -> object:
+    """Read a JSON document from disk."""
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def validate(schema_path: Path, document_path: Path) -> None:
+    """Validate one document against a Draft 2020-12 JSON schema."""
     schema = load(schema_path)
     Draft202012Validator.check_schema(schema)
     document = load(document_path)
@@ -33,6 +36,16 @@ def validate(schema_path: Path, document_path: Path) -> None:
 
 
 def main() -> None:
+    """Validate every checked-in schema, manifest, task, and scenario."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--objective-calibration",
+        type=Path,
+        action="append",
+        default=[],
+        help="additional objective-calibration artifact to validate",
+    )
+    args = parser.parse_args()
     schema_paths = sorted((ROOT / "schemas").glob("*.schema.json"))
     for schema_path in schema_paths:
         Draft202012Validator.check_schema(load(schema_path))
@@ -72,6 +85,12 @@ def main() -> None:
         ROOT / "schemas/run-manifest.schema.json",
         ROOT / "configs/run-manifest.nvidia-hosted.json",
     )
+    validate(
+        ROOT / "schemas/objective-calibration.schema.json",
+        ROOT / "configs/objective-calibration.bootstrap.json",
+    )
+    for calibration_path in args.objective_calibration:
+        validate(ROOT / "schemas/objective-calibration.schema.json", calibration_path)
     task_schema = ROOT / "schemas/task.schema.json"
     task_paths = sorted((ROOT / "benchmarks/tasks").glob("task-*.json"))
     if len(task_paths) != 10:
