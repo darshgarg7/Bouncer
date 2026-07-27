@@ -17,6 +17,10 @@ The Makefile automatically uses `.venv` after bootstrapping. To use a different
 location, run `make bootstrap VENV=/absolute/path` and pass the same `VENV`
 value to later Make commands.
 
+Bootstrap installs the hash-pinned `requirements-dev.lock`, then installs the
+repository editable with dependency resolution disabled. Maintainers regenerate
+the lock in the lowest supported Python runtime with `make lock-python`.
+
 ## Quality gates
 
 ```bash
@@ -185,8 +189,18 @@ The checked-in service defaults to the reversible virtual executor. It authentic
 export BOUNCER_SANDBOX_TOKEN="local-development-token"
 bin/bouncer-sandbox \
   -listen 127.0.0.1:8082 \
-  -idempotency-dir data/sandbox-idempotency
+  -idempotency-dir data/sandbox-idempotency \
+  -max-body-bytes 4194304 \
+  -requests-per-second 20 \
+  -request-burst 40
 ```
+
+The service authenticates before consuming a process-wide rate-limit token,
+returns `429` with `Retry-After: 1` when the burst is exhausted, and applies
+HTTP header/read/write/idle timeouts. `SIGINT` and `SIGTERM` stop admission and
+give in-flight handlers up to ten seconds to finish. These are safe reference
+defaults, not load-qualified production limits. Recovery and indeterminate-key
+handling are documented in [Recovery and Reconciliation](RECOVERY.md).
 
 For an explicitly local HTTP test:
 

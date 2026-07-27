@@ -1,5 +1,9 @@
 # Bouncer architecture
 
+Package responsibilities and mechanically enforced dependency direction are
+listed in [Package Ownership](PACKAGE_OWNERSHIP.md). The lower authorization and
+execution boundaries do not import orchestration or learned-routing packages.
+
 This document describes the implemented system. “Implemented” does not imply production qualification; evidence levels are tracked in [CLAIMS.md](CLAIMS.md).
 
 ## Design invariants
@@ -30,7 +34,11 @@ flowchart LR
         G -->|"reject"| F["Canonical feedback"]
         F --> C
         G -->|"feasible"| K["Objective calibrator"]
-        K --> R["Explicit router"]
+        K --> FEAT["Trusted feature extractor"]
+        FEAT --> LM["Optional learned scorer"]
+        LM --> PH["Risk gate + Pareto holding"]
+        PH --> R["Explicit router"]
+        K -->|"learning disabled"| R
     end
 
     subgraph Execution
@@ -56,6 +64,7 @@ The default proposal budget is one proposer returning one action because it won 
 | Decoder | Contract shape, bounded size, local numeric validity | Semantic policy |
 | Go policy | Declared operation, path, dependency, protection, and mutation rules | Undeclared environmental facts |
 | Objective calibrator | Bounding and transforming predictions under a hashed artifact | Claiming bootstrap priors are measured or allowing an action |
+| Learned scorer | Predicting five outcomes for policy-admitted candidates under a validated artifact | Adding permissions, overriding a rejection, or treating bootstrap predictions as evidence |
 | Router | Reproducing the configured choice among admitted, scored candidates | Reading raw provider estimates or authorizing an action |
 | Remote gateway | Protocol authentication and response binding | General operating-system containment |
 | Rooted backend | Narrow Linux filesystem mediation | Arbitrary commands, arbitrary network tools, or a formal isolation proof |
@@ -111,6 +120,27 @@ All candidates first pass the calibrated risk ceiling. Available policies are:
 | `legacy_crowding` | Nondomination rank, crowding, then ID | 1; historical replay only |
 
 Crowding distance remains ranking metadata; it is not the default utility. Adaptive expansion uses the number of valid candidates and calibrated objective-space spread. It logs every trigger and extra request.
+
+### Learned routing path
+
+The optional learning path is independently promoted as `disabled`, `shadow`,
+or `active`. It consumes only the calibrated, policy-admitted candidate set.
+The portable artifact contains independent generalized-linear models for
+progress, terminal success, latency, cost, and adverse risk plus a smoothed
+first-order transition prior. Progress and success use lower confidence bounds;
+latency, cost, and risk use upper confidence bounds.
+
+Candidates outside the learned risk or uncertainty thresholds are removed.
+The router computes nondomination across all five conservative objectives,
+limits an oversized frontier by objective-space crowding, and applies an
+explicit safety-first selector. Shadow mode records the alternative action and
+disagreement without changing execution. Active mode fails the run when model
+validation or frontier construction fails. Neither mode can restore a candidate
+rejected by policy.
+
+The hand-authored bootstrap learning artifact is restricted to shadow mode.
+Learned artifacts are trained offline, loaded immutably, hashed, and never
+updated within a run.
 
 ## Execution plane
 

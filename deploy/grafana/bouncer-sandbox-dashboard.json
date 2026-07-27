@@ -1,0 +1,62 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "targets": [
+        {"expr": "rate(bouncer_sandbox_requests_total[5m])", "legendFormat": "requests"},
+        {"expr": "rate(bouncer_sandbox_executions_total[5m])", "legendFormat": "executions"},
+        {"expr": "rate(bouncer_sandbox_idempotency_replays_total[5m])", "legendFormat": "replays"}
+      ],
+      "title": "Request outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"min": 0, "max": 1, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "id": 2,
+      "targets": [
+        {"expr": "rate(bouncer_sandbox_errors_total[5m]) / clamp_min(rate(bouncer_sandbox_requests_total[5m]), 0.000001)", "legendFormat": "error ratio"}
+      ],
+      "title": "Execution error ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "description": "Arithmetic mean only. Use OTEL spans for percentiles until a histogram is emitted.",
+      "fieldConfig": {"defaults": {"min": 0, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "id": 3,
+      "targets": [
+        {"expr": "rate(bouncer_sandbox_request_duration_seconds_sum[5m]) / clamp_min(rate(bouncer_sandbox_request_duration_seconds_count[5m]), 0.000001)", "legendFormat": "mean"}
+      ],
+      "title": "Mean request duration",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["bouncer", "sandbox"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "label": "Prometheus",
+        "name": "DS_PROMETHEUS",
+        "query": "prometheus",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Bouncer sandbox",
+  "uid": "bouncer-sandbox-v1",
+  "version": 1
+}

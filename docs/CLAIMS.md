@@ -33,6 +33,7 @@ This file is the authoritative boundary between what Bouncer has demonstrated an
 | C-013 | The Linux rooted executor uses `openat2` beneath/no-symlink resolution, rejects hard-linked targets, bounds I/O, and refuses unrestricted commands. | E1 | `internal/executor/rooted_linux.go`, Linux-only adversarial tests | Must not imply independent sandbox qualification. |
 | C-014 | In the current three-task hosted smoke pilot, Nemotron 3 Ultra passed 2/3 authored virtual tasks; eight rejected proposals were not executed, zero severe virtual mutations occurred, and all three terminal event chains verified. | E2P | `benchmarks/reports/nvidia-hosted-pilot-2026-07-27/summary.json` | Must state one model, one seed, no comparison baseline, and connectivity rather than effectiveness; the earlier 3/3 pilot predates the objective boundary. |
 | C-015 | The router's type-level API accepts separately scored objectives rather than raw provider estimates; `configs/objective-calibration.bootstrap.json` gives provider estimates zero influence and logs the full transformation plus artifact digest. | E1 | `configs/objective-calibration.bootstrap.json` | “Bouncer prevents model-authored objective fields from controlling routing under the bootstrap artifact.” Must not call the bootstrap priors empirically calibrated. |
+| C-016 | Bouncer can validate a portable learning artifact, score only policy-admitted candidates, apply uncertainty/risk gates, retain a five-objective Pareto set, and run the result in shadow or fail-closed active mode. | E1 | `internal/learning`, `internal/router/learned.go`, active/shadow integration tests | “The gated learned-routing mechanism is implemented and conformance-tested.” Must not claim that the bootstrap artifact or learned routing improves real-task outcomes. |
 
 ## Unsupported claims
 
@@ -46,6 +47,8 @@ The following statements are prohibited until their promotion gates are met:
 - The objective values emitted by a model are calibrated measurements.
 - Execution logs identify causal effects.
 - IPW, doubly robust estimation, or causal discovery improves routing.
+- The checked-in learning artifact is trained, calibrated, or suitable for active routing.
+- Contextual bandits or anomaly detection improve production outcomes.
 - The remote reference service safely contains arbitrary host-tool execution.
 
 ## Promotion gates

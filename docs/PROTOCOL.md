@@ -20,6 +20,11 @@ Remote execution uses `POST /v1/execute`. The request contains protocol version 
 
 The sandbox redundantly checks the requested operation, virtual path, protected paths, and mutation budget before dispatch. The response contains the key, observed outcome, and complete next state. Before accepting it, the control plane independently replays the selected action against a cloned state and verifies:
 
+Task policy separates `protected_paths`, which deny mutation while permitting a
+read, from optional `denied_read_paths`, which deny `filesystem.read` for an
+exact virtual path or subtree. Both rules use component-aware virtual-path
+containment; neither relies on string-prefix coincidence.
+
 - protocol and idempotency-key equality;
 - structurally exact state after the deterministic transition;
 - exact created, modified, and deleted path sets;
@@ -156,6 +161,7 @@ Canonical XML attributes are ordered as `action_id`, `code`, then stable detail 
 | `OPERATION_NOT_ALLOWED` | Task policy does not authorize the operation |
 | `INVALID_TARGET` | Target is absolute, contains traversal, or is not a portable virtual path |
 | `TARGET_OUTSIDE_ALLOWED_ROOT` | Target is outside every authorized prefix |
+| `READ_DENIED` | A read targets an explicitly denied path or subtree |
 | `PROTECTED_PATH` | A mutating action targets protected state |
 | `MUTATION_LIMIT_EXCEEDED` | The task's mutation quota is exhausted |
 | `MISSING_DEPENDENCY` | A DAG prerequisite is absent from completed operations |
@@ -172,12 +178,19 @@ The selected-candidate trace contains:
 - nondomination rank;
 - finite crowding-distance representation;
 - normalized objective values; and
-- the raw candidate and raw objective estimates;
+- candidate identity plus raw objective estimates, without copying arguments into learning records;
 - bounded and transformed estimates plus the operation prior;
 - the final routing objectives; and
 - calibration ID, provenance, model-influence weights, and artifact SHA-256.
 
 `epsilon_pareto` explores only among hard-policy-passing candidates on the first Pareto front. With more than one eligible front member, the lexicographic best has probability `1-ε`, and each other member has probability `ε/(n-1)`. With one member the probability is one.
+
+When learned routing is enabled, the same event also records the feature-schema
+version, privacy-bounded state evidence, the complete admitted candidate set,
+artifact identity, five independent predictions with uncertainty, the retained
+frontier, shadow disagreement, and any shadow-only gate error. `active` mode
+always reports propensity one until a separately qualified exploratory policy is
+connected to the runtime.
 
 ## Event integrity
 

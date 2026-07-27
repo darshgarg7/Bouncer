@@ -6,14 +6,15 @@ change without crossing a trust boundary by accident.
 
 ## The shortest useful mental model
 
-Bouncer has six runtime stages:
+Bouncer has six required stages and one optional learned-ranking stage:
 
 1. A provider proposes typed candidate actions.
 2. The policy evaluator rejects candidates that violate declared constraints.
 3. A trusted artifact converts raw provider estimates into routing objectives.
-4. The router selects one admitted candidate using a named strategy.
-5. An executor applies the action to virtual or remote state.
-6. The event log records the run and verifies that it ended cleanly.
+4. An optional immutable learning artifact predicts outcomes and constructs a conservative Pareto set.
+5. The router selects one admitted candidate using a named strategy.
+6. An executor applies the action to virtual or remote state.
+7. The event log records the run and verifies that it ended cleanly.
 
 The model participates only in step 1. It never approves its own action.
 
@@ -24,7 +25,9 @@ flowchart LR
     C -->|"rejected"| F["Constraint feedback"]
     F --> A
     C -->|"admitted"| K["Objective calibrator"]
-    K --> D["Router"]
+    K --> ML["Optional learned scoring"]
+    ML --> D["Router"]
+    K -->|"disabled"| D
     D --> E["Executor"]
     E --> G["State diff"]
     G --> H["Hash-linked event log"]
@@ -73,6 +76,8 @@ separate review process.
 | Policy | `internal/policy/evaluator.go` | Operations, paths, dependencies, mutation limits |
 | Objective calibration | `internal/calibration/calibration.go` | Bounds, transforms, operation priors, raw-versus-routing separation |
 | Routing | `internal/router/router.go` | Risk ceiling, ranking, strategy semantics, propensity |
+| Learned inference | `internal/learning` and `internal/router/learned.go` | Feature contract, artifact validation, uncertainty, and five-objective Pareto holding |
+| Behavior monitoring | `internal/monitoring/rules.go` | Explainable rolling telemetry alerts |
 | Execution | `internal/executor/virtual.go` | Canonical state transition and state diff |
 | Remote boundary | `internal/executor/remote.go` | Idempotency key and returned-transition validation |
 | Evidence | `internal/eventlog/jsonl.go` | Run lifecycle, sequence, hash chain, terminal event |
@@ -86,6 +91,12 @@ the 100,000-case parity gate.
 produce a reviewed scoring artifact, but it has no authorization or execution
 dependency. The checked-in bootstrap uses zero model influence because its
 operation priors are engineering defaults rather than measured calibration.
+
+`benchmarking/learning/` owns trajectory joins, supervised training, Markov
+priors, vector FQE, bandit challengers, anomaly training, and the known-truth
+simulator. Start with [ML Routing Operations](ML_OPERATIONS.md) before changing
+that path. The Go/Python feature contract has one shared fixture at
+`examples/learning-feature-fixture.json`.
 
 ## Where tests belong
 
@@ -156,3 +167,37 @@ particular:
 
 When in doubt, describe exactly what ran, how many tasks it covered, and what
 remains untested.
+
+## Documentation map
+
+- [System Design Walkthrough](SYSTEM_DESIGN_WALKTHROUGH.md): runtime and state-machine tour.
+- [Architecture](ARCHITECTURE.md): packages, dependencies, and trust boundaries.
+- [Transition Verification](ARTICLE_TRANSITION_VERIFICATION.md): deep technical article.
+- [Threat Model](THREAT_MODEL.md): assets, attackers, controls, and residual risk.
+- [Protocol](PROTOCOL.md): typed request, response, event, and idempotency contracts.
+- [Claims & Evidence](CLAIMS.md): allowed wording and supporting artifacts.
+- [Benchmarking](BENCHMARKING.md): controlled studies and evaluation methods.
+- [ML Routing Operations](ML_OPERATIONS.md): data, training, evaluation, and promotion.
+- [Production Readiness](PRODUCTION_READINESS.md): implemented versus unqualified controls.
+- [Recovery and Reconciliation](RECOVERY.md): backup, restore, and indeterminate executions.
+- [Project History](PROJECT_HISTORY.md): authorship, failed approaches, and design changes.
+- [Hiring Guide](HIRING_GUIDE.md): concise explanations and interview preparation.
+
+## Deeper test gates
+
+`make fuzz-smoke` runs 10-second fuzz sessions across proposal decoding,
+routing determinism, event verification, artifact validation, path
+normalization, and idempotency collisions. Set `BOUNCER_FUZZ_TIME` to extend
+each session.
+
+Mutation testing is intentionally a slower scheduled gate. Install the pinned
+tool used by `.github/workflows/mutation.yml`, then run:
+
+```bash
+go install github.com/jonbaldie/go-mutesting/v2/cmd/go-mutesting@v2.7.9
+MUTATION_TOOL="$(go env GOPATH)/bin/go-mutesting" make mutation-check
+```
+
+It exercises the policy evaluator, router, and lifecycle verifier and requires
+at least a 70% covered-code mutation score. Ordinary unit coverage is not a
+substitute for this check.
