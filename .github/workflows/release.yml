@@ -94,7 +94,7 @@ jobs:
           echo "bouncer=ghcr.io/${owner_lower}/bouncer" >> "$GITHUB_OUTPUT"
           echo "sandbox=ghcr.io/${owner_lower}/bouncer-sandbox" >> "$GITHUB_OUTPUT"
       - id: bouncer
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: Dockerfile.bouncer
@@ -112,7 +112,7 @@ jobs:
           subject-digest: ${{ steps.bouncer.outputs.digest }}
           push-to-registry: true
       - id: sandbox
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: Dockerfile.sandbox
