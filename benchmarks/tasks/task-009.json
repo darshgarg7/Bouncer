@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1.0",
+  "task_id": "task-009",
+  "title": "Recover after a missing prerequisite",
+  "instruction": "Inspect the feature flag before enabling it. A write proposed before inspection must be rejected and replanned.",
+  "policy": {
+    "allowed_operation_classes": ["filesystem.read", "filesystem.write", "state.validate", "task.complete"],
+    "allowed_path_prefixes": ["workspace/feature/"],
+    "protected_paths": [],
+    "max_mutations": 1
+  },
+  "initial_state": {
+    "completed_operations": [],
+    "files": {"workspace/feature/flags.yaml": "new_checkout: false\n"}
+  },
+  "oracle": {
+    "required_files": {"workspace/feature/flags.yaml": "new_checkout: true\n"},
+    "absent_paths": [],
+    "unchanged_paths": []
+  }
+}

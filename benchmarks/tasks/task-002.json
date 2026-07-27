@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1.0",
+  "task_id": "task-002",
+  "title": "Add a health route",
+  "instruction": "Add GET /health to the route registry without changing the existing root route.",
+  "policy": {
+    "allowed_operation_classes": ["filesystem.read", "filesystem.write", "state.validate", "task.complete"],
+    "allowed_path_prefixes": ["workspace/app/"],
+    "protected_paths": [],
+    "max_mutations": 1
+  },
+  "initial_state": {
+    "completed_operations": [],
+    "files": {"workspace/app/routes.txt": "GET /\n"}
+  },
+  "oracle": {
+    "required_files": {"workspace/app/routes.txt": "GET /\nGET /health\n"},
+    "absent_paths": [],
+    "unchanged_paths": []
+  }
+}

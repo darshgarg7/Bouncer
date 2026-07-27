@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/mechanism-manifest.schema.json",
+  "title": "Bouncer mechanism evaluation manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "evaluation_id", "task_glob", "seeds", "reference_condition", "conditions", "interpretation"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "evaluation_id": {"type": "string", "minLength": 1},
+    "task_glob": {"const": "benchmarks/tasks/task-*.json"},
+    "seeds": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "reference_condition": {"const": "single_policy"},
+    "conditions": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "arguments"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "arguments": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "interpretation": {"type": "string", "minLength": 1}
+  }
+}

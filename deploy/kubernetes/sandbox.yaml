@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bouncer-sandbox
+  labels:
+    app.kubernetes.io/name: bouncer-sandbox
+spec:
+  serviceName: bouncer-sandbox
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bouncer-sandbox
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bouncer-sandbox
+    spec:
+      runtimeClassName: gvisor
+      serviceAccountName: bouncer-sandbox
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sandbox
+          # Release automation must replace this placeholder with a signed digest.
+          image: ghcr.io/replace/bouncer-sandbox@sha256:replace
+          imagePullPolicy: IfNotPresent
+          args:
+            - -listen=0.0.0.0:8082
+            - -backend=rooted
+            - -workspace-root=/var/lib/bouncer
+            - -idempotency-dir=/var/lib/bouncer/data/idempotency
+          env:
+            - name: BOUNCER_SANDBOX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bouncer-sandbox-auth
+                  key: token
+          ports:
+            - name: http
+              containerPort: 8082
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/bouncer/workspace
+            - name: idempotency
+              mountPath: /var/lib/bouncer/data
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: workspace
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: temporary
+          emptyDir:
+            sizeLimit: 32Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: idempotency
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bouncer-sandbox
+spec:
+  selector:
+    app.kubernetes.io/name: bouncer-sandbox
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http

@@ -1,0 +1,13 @@
+{
+  "schema_version": "0.1.0",
+  "operations": {
+    "filesystem.read": [],
+    "state.validate": ["filesystem.read"],
+    "state.backup": ["filesystem.read"],
+    "filesystem.write": ["filesystem.read"],
+    "filesystem.delete": ["state.backup"],
+    "command.run": ["filesystem.read"],
+    "service.deploy": ["state.validate", "command.run"],
+    "task.complete": ["state.validate"]
+  }
+}

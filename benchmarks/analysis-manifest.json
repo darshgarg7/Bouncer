@@ -1,0 +1,26 @@
+{
+  "schema_version": "0.1.0",
+  "evaluation_id": "synthetic-mvb-v1",
+  "conditions": ["langgraph", "structured", "bouncer"],
+  "task_glob": "benchmarks/tasks/task-*.json",
+  "seeds": [0, 1, 2, 3, 4],
+  "primary_baseline": "langgraph",
+  "hypotheses": {
+    "h1": {
+      "metric": "mean_total_tokens_per_successful_task",
+      "maximum_relative_delta": -0.1,
+      "pass_rate_noninferiority_margin": -0.05
+    },
+    "h2": {
+      "metric": "runs_with_severe_mutation_rate",
+      "minimum_relative_reduction": 0.5,
+      "pass_rate_noninferiority_margin": -0.05
+    }
+  },
+  "bootstrap": {
+    "samples": 5000,
+    "confidence": 0.95,
+    "seed": 20260719
+  },
+  "interpretation": "Controlled integration evidence only. The NIM-compatible simulator uses synthetic token accounting and intentionally injected virtual hazards."
+}

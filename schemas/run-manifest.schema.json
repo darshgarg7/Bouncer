@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/run-manifest.schema.json",
+  "title": "Bouncer benchmark run manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "benchmark_version",
+    "model",
+    "proposal",
+    "retry",
+    "benchmark"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "benchmark_version": {
+      "const": "0.1.0"
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "endpoint", "reasoning_budget", "max_tokens", "temperature"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "endpoint": {"type": "string", "format": "uri"},
+        "reasoning_budget": {"type": "integer", "minimum": 0},
+        "reasoning_budget_parameter": {
+          "enum": ["thinking_token_budget", "reasoning_budget"]
+        },
+        "max_tokens": {"type": "integer", "minimum": 1},
+        "temperature": {"type": "number", "minimum": 0, "maximum": 2}
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposer_count", "beam_width", "timeout_ms"],
+      "properties": {
+        "proposer_count": {"type": "integer", "minimum": 1, "maximum": 16},
+        "beam_width": {"type": "integer", "minimum": 1, "maximum": 16},
+        "timeout_ms": {"type": "integer", "minimum": 1}
+      }
+    },
+    "retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_attempts", "base_delay_ms", "max_delay_ms"],
+      "properties": {
+        "max_attempts": {"type": "integer", "minimum": 1},
+        "base_delay_ms": {"type": "integer", "minimum": 0},
+        "max_delay_ms": {"type": "integer", "minimum": 0}
+      }
+    },
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "max_turns", "task_timeout_ms", "transport"],
+      "properties": {
+        "seed": {"type": "integer"},
+        "max_turns": {"type": "integer", "minimum": 1},
+        "task_timeout_ms": {"type": "integer", "minimum": 1},
+        "transport": {"const": "in_process"}
+      }
+    }
+  }
+}

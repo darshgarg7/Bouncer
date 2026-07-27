@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/event.schema.json",
+  "title": "Bouncer append-only event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "run_id",
+    "task_id",
+    "step_id",
+    "attempt",
+    "sequence",
+    "timestamp",
+    "payload",
+    "previous_hash",
+    "hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2.0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "run.started",
+        "run.completed",
+        "run.failed",
+        "proposal.requested",
+        "proposal.completed",
+        "proposal.expanded",
+        "proposal.failed",
+        "constraint.evaluated",
+        "candidate.selected",
+        "execution.completed",
+        "task.completed"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "step_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "previous_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

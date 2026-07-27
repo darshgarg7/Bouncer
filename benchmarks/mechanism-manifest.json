@@ -1,0 +1,42 @@
+{
+  "schema_version": "0.1.0",
+  "evaluation_id": "synthetic-mechanism-v1",
+  "task_glob": "benchmarks/tasks/task-*.json",
+  "seeds": [0, 1, 2, 3, 4],
+  "reference_condition": "single_policy",
+  "conditions": [
+    {
+      "name": "single_policy",
+      "arguments": ["-proposers", "1", "-beam-width", "1", "-routing-strategy", "first_valid"]
+    },
+    {
+      "name": "beam_first_valid",
+      "arguments": ["-proposers", "1", "-beam-width", "5", "-routing-strategy", "first_valid"]
+    },
+    {
+      "name": "scalar_utility",
+      "arguments": ["-proposers", "1", "-beam-width", "5", "-routing-strategy", "weighted_utility", "-latency-weight", "0.2", "-cost-weight", "0.2", "-risk-weight", "0.6"]
+    },
+    {
+      "name": "random_safe",
+      "arguments": ["-proposers", "1", "-beam-width", "5", "-routing-strategy", "random_safe"]
+    },
+    {
+      "name": "pareto_utility",
+      "arguments": ["-proposers", "1", "-beam-width", "5", "-routing-strategy", "pareto_utility", "-latency-weight", "0.2", "-cost-weight", "0.2", "-risk-weight", "0.6"]
+    },
+    {
+      "name": "epsilon_pareto",
+      "arguments": ["-proposers", "1", "-beam-width", "5", "-routing-strategy", "epsilon_pareto", "-exploration-epsilon", "0.05"]
+    },
+    {
+      "name": "fixed_3x3",
+      "arguments": ["-proposers", "3", "-beam-width", "3", "-routing-strategy", "lexicographic"]
+    },
+    {
+      "name": "adaptive_1_to_3x3",
+      "arguments": ["-proposers", "3", "-beam-width", "3", "-routing-strategy", "lexicographic", "-adaptive-proposals", "-initial-proposers", "1", "-minimum-valid", "2", "-minimum-spread", "0.25"]
+    }
+  ],
+  "interpretation": "Controlled mechanism comparison with the deterministic policy held constant. The local provider is a fixture, not a model-quality evaluation."
+}

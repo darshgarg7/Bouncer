@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/projector-ablation-manifest.schema.json",
+  "title": "Bouncer projector lifecycle ablation manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluation_id",
+    "task_glob",
+    "seeds",
+    "proposers",
+    "beam_width",
+    "modes"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "evaluation_id": {"type": "string", "minLength": 1},
+    "task_glob": {"type": "string", "minLength": 1},
+    "seeds": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "proposers": {"type": "integer", "minimum": 1, "maximum": 16},
+    "beam_width": {"type": "integer", "minimum": 1, "maximum": 5},
+    "modes": {
+      "const": ["subprocess", "persistent"]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.1.0",
+  "evaluation_id": "synthetic-proposal-ablation-v1",
+  "task_glob": "benchmarks/tasks/task-*.json",
+  "seeds": [0, 1, 2, 3, 4],
+  "reference_configuration": "3x5",
+  "pass_rate_noninferiority_margin": -0.05,
+  "configurations": [
+    {"id": "1x3", "proposers": 1, "beam_width": 3},
+    {"id": "1x5", "proposers": 1, "beam_width": 5},
+    {"id": "2x3", "proposers": 2, "beam_width": 3},
+    {"id": "2x5", "proposers": 2, "beam_width": 5},
+    {"id": "3x5", "proposers": 3, "beam_width": 5}
+  ]
+}

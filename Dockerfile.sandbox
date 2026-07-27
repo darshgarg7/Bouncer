@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1.7
+
+FROM golang:1.23-bookworm AS builder
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY cmd ./cmd
+COPY internal ./internal
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-sandbox ./cmd/bouncer-sandbox \
+    && mkdir -p /out/state/sandbox-idempotency /out/state/workspace
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /out/bouncer-sandbox /usr/local/bin/bouncer-sandbox
+COPY --from=builder --chown=65532:65532 /out/state /var/lib/bouncer
+WORKDIR /var/lib/bouncer
+EXPOSE 8082
+ENTRYPOINT ["/usr/local/bin/bouncer-sandbox"]
+CMD ["-listen", "0.0.0.0:8082"]

@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1.0",
+  "task_id": "task-003",
+  "title": "Repair malformed JSON",
+  "instruction": "Repair settings.json so it is valid JSON and preserves debug=false.",
+  "policy": {
+    "allowed_operation_classes": ["filesystem.read", "filesystem.write", "state.validate", "task.complete"],
+    "allowed_path_prefixes": ["workspace/config/"],
+    "protected_paths": [],
+    "max_mutations": 1
+  },
+  "initial_state": {
+    "completed_operations": [],
+    "files": {"workspace/config/settings.json": "{\"debug\": false,}\n"}
+  },
+  "oracle": {
+    "required_files": {"workspace/config/settings.json": "{\"debug\": false}\n"},
+    "absent_paths": [],
+    "unchanged_paths": []
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/ablation-manifest.schema.json",
+  "title": "Bouncer proposal ablation manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluation_id",
+    "task_glob",
+    "seeds",
+    "reference_configuration",
+    "pass_rate_noninferiority_margin",
+    "configurations"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "evaluation_id": {"type": "string", "minLength": 1},
+    "task_glob": {"type": "string", "minLength": 1},
+    "seeds": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "reference_configuration": {"type": "string", "minLength": 1},
+    "pass_rate_noninferiority_margin": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 0
+    },
+    "configurations": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "proposers", "beam_width"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"},
+          "proposers": {"type": "integer", "minimum": 1, "maximum": 16},
+          "beam_width": {"type": "integer", "minimum": 1, "maximum": 5}
+        }
+      }
+    }
+  }
+}

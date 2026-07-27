@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/action.schema.json",
+  "title": "Bouncer candidate action",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidate_id",
+    "operation_class",
+    "tool",
+    "target",
+    "arguments",
+    "declared_dependencies",
+    "estimated_objectives"
+  ],
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "operation_class": {
+      "type": "string",
+      "enum": [
+        "filesystem.read",
+        "filesystem.write",
+        "filesystem.delete",
+        "state.validate",
+        "state.backup",
+        "command.run",
+        "service.deploy",
+        "task.complete"
+      ]
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "arguments": {
+      "type": "object"
+    },
+    "declared_dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "uniqueItems": true
+    },
+    "estimated_objectives": {
+      "$ref": "#/$defs/objectives"
+    }
+  },
+  "$defs": {
+    "objectives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency_ms", "cost_units", "safety_risk"],
+      "properties": {
+        "latency_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cost_units": {
+          "type": "number",
+          "minimum": 0
+        },
+        "safety_risk": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

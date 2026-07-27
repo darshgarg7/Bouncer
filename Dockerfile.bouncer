@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1.7
+
+FROM golang:1.23-bookworm AS go-builder
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY cmd ./cmd
+COPY internal ./internal
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-run ./cmd/bouncer-run \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-harness ./cmd/bouncer-harness \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-provider-gate ./cmd/bouncer-provider-gate \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-verify-log ./cmd/bouncer-verify-log
+
+FROM python:3.11-slim-bookworm
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+RUN groupadd --system bouncer && useradd --system --gid bouncer --home /app bouncer
+WORKDIR /app
+COPY --from=go-builder /out/ /usr/local/bin/
+COPY --chown=bouncer:bouncer constraint_projection ./constraint_projection
+COPY --chown=bouncer:bouncer configs ./configs
+COPY --chown=bouncer:bouncer benchmarks/tasks ./benchmarks/tasks
+USER bouncer
+ENTRYPOINT ["bouncer-run"]

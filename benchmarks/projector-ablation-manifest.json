@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.1.0",
+  "evaluation_id": "synthetic-projector-ablation-v1",
+  "task_glob": "benchmarks/tasks/task-*.json",
+  "seeds": [0, 1, 2, 3, 4],
+  "proposers": 1,
+  "beam_width": 3,
+  "modes": ["subprocess", "persistent"]
+}

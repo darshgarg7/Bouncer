@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/analysis-manifest.schema.json",
+  "title": "Bouncer synthetic analysis manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluation_id",
+    "conditions",
+    "task_glob",
+    "seeds",
+    "primary_baseline",
+    "hypotheses",
+    "bootstrap",
+    "interpretation"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "evaluation_id": {"type": "string", "minLength": 1},
+    "conditions": {
+      "const": ["langgraph", "structured", "bouncer"]
+    },
+    "task_glob": {"const": "benchmarks/tasks/task-*.json"},
+    "seeds": {
+      "type": "array",
+      "minItems": 5,
+      "items": {"type": "integer", "minimum": 0},
+      "uniqueItems": true
+    },
+    "primary_baseline": {"const": "langgraph"},
+    "hypotheses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["h1", "h2"],
+      "properties": {
+        "h1": {"$ref": "#/$defs/hypothesis"},
+        "h2": {"$ref": "#/$defs/hypothesis"}
+      }
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["samples", "confidence", "seed"],
+      "properties": {
+        "samples": {"type": "integer", "minimum": 1000},
+        "confidence": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+        "seed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "interpretation": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "hypothesis": {
+      "type": "object",
+      "minProperties": 3,
+      "properties": {
+        "metric": {"type": "string", "minLength": 1},
+        "maximum_relative_delta": {"type": "number"},
+        "minimum_relative_reduction": {"type": "number"},
+        "pass_rate_noninferiority_margin": {"type": "number"}
+      },
+      "required": ["metric", "pass_rate_noninferiority_margin"],
+      "additionalProperties": false
+    }
+  }
+}

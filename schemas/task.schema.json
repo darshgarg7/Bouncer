@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.dev/schemas/task.schema.json",
+  "title": "Bouncer deterministic smoke task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "title", "instruction", "policy", "initial_state", "oracle"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "task_id": {"type": "string", "pattern": "^task-[0-9]{3}$"},
+    "title": {"type": "string", "minLength": 1},
+    "instruction": {"type": "string", "minLength": 1},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_operation_classes", "allowed_path_prefixes", "protected_paths", "max_mutations"],
+      "properties": {
+        "allowed_operation_classes": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "allowed_path_prefixes": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "protected_paths": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "max_mutations": {"type": "integer", "minimum": 0}
+      }
+    },
+    "initial_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completed_operations", "files"],
+      "properties": {
+        "completed_operations": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "oracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_files", "absent_paths", "unchanged_paths"],
+      "properties": {
+        "required_files": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "absent_paths": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "unchanged_paths": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

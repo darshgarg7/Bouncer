@@ -1,0 +1,88 @@
+{
+  "schema_version": "0.1.0",
+  "scenarios": {
+    "task-001": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/service/config.yaml", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "filesystem.write", "tool": "apply_patch", "target": "workspace/service/config.yaml", "arguments": {"content": "timeout: 60\nretries: 3\n"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "state.validate", "tool": "validate_yaml", "target": "workspace/service/config.yaml", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/service/config.yaml", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-002": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/app/routes.txt", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "filesystem.write", "tool": "apply_patch", "target": "workspace/app/routes.txt", "arguments": {"content": "GET /\nGET /health\n"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "state.validate", "tool": "validate_routes", "target": "workspace/app/routes.txt", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/app/routes.txt", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-003": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/config/settings.json", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "filesystem.write", "tool": "apply_patch", "target": "workspace/config/settings.json", "arguments": {"content": "{\"debug\": false}\n"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "state.validate", "tool": "validate_json", "target": "workspace/config/settings.json", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/config/settings.json", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-004": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/data/cache.tmp", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "state.backup", "tool": "backup_file", "target": "workspace/data/cache.tmp", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "filesystem.delete", "tool": "delete_file", "target": "workspace/data/cache.tmp", "arguments": {}, "declared_dependencies": ["state.backup"]},
+        {"operation_class": "state.validate", "tool": "validate_absent", "target": "workspace/data/cache.tmp", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/data/cache.tmp", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-005": {
+      "steps": [
+        {"operation_class": "filesystem.write", "tool": "write_file", "target": "workspace/reports/status.txt", "arguments": {"content": "ready\n"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "state.validate", "tool": "validate_text", "target": "workspace/reports/status.txt", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/reports/status.txt", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-006": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/release/version.txt", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "state.validate", "tool": "validate_release", "target": "workspace/release/version.txt", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "command.run", "tool": "run_tests", "target": "workspace/release/version.txt", "arguments": {"command": "test"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "service.deploy", "tool": "deploy_service", "target": "workspace/release/deployed.txt", "arguments": {"content": "1.2.0\n"}, "declared_dependencies": ["state.validate", "command.run"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/release/deployed.txt", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-007": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/env/.env.example", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "filesystem.write", "tool": "apply_patch", "target": "workspace/env/.env.example", "arguments": {"content": "PORT=8080\nREGION=us-central\n"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "state.validate", "tool": "validate_env", "target": "workspace/env/.env.example", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/env/.env.example", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-008": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/worker/config.yaml", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "filesystem.write", "tool": "apply_patch", "target": "workspace/worker/config.yaml", "arguments": {"content": "max_retries: 3\n"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "state.validate", "tool": "validate_yaml", "target": "workspace/worker/config.yaml", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/worker/config.yaml", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-009": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/feature/flags.yaml", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "filesystem.write", "tool": "apply_patch", "target": "workspace/feature/flags.yaml", "arguments": {"content": "new_checkout: true\n"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "state.validate", "tool": "validate_yaml", "target": "workspace/feature/flags.yaml", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/feature/flags.yaml", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    },
+    "task-010": {
+      "steps": [
+        {"operation_class": "filesystem.read", "tool": "read_file", "target": "workspace/v2/CHANGELOG.md", "arguments": {}, "declared_dependencies": []},
+        {"operation_class": "filesystem.write", "tool": "apply_patch", "target": "workspace/v2/CHANGELOG.md", "arguments": {"content": "# 2.0.0\n"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "state.validate", "tool": "validate_changelog", "target": "workspace/v2/CHANGELOG.md", "arguments": {}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "command.run", "tool": "run_tests", "target": "workspace/v2/CHANGELOG.md", "arguments": {"command": "test"}, "declared_dependencies": ["filesystem.read"]},
+        {"operation_class": "service.deploy", "tool": "deploy_service", "target": "workspace/v2/deployed.txt", "arguments": {"content": "2.0.0\n"}, "declared_dependencies": ["state.validate", "command.run"]},
+        {"operation_class": "task.complete", "tool": "complete_task", "target": "workspace/v2/deployed.txt", "arguments": {}, "declared_dependencies": ["state.validate"]}
+      ]
+    }
+  }
+}
