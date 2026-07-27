@@ -55,13 +55,15 @@ func run(manifestPath, taskPath, endpoint, outputDir string, batches int, seedOv
 	}
 	client, err := nimclient.New(nimclient.Config{
 		BaseURL:         manifest.Model.Endpoint,
-		APIKey:          os.Getenv("NIM_API_KEY"),
+		APIKey:          nimclient.APIKeyFromEnvironment(),
 		Model:           manifest.Model.ID,
 		ReasoningBudget: manifest.Model.ReasoningBudget,
 		BudgetParameter: manifest.Model.BudgetParameter(),
 		BeamWidth:       manifest.Proposal.BeamWidth,
 		MaxTokens:       manifest.Model.MaxTokens,
 		Temperature:     manifest.Model.Temperature,
+		TopP:            manifest.Model.TopP,
+		ReasoningEffort: manifest.Model.ReasoningEffort,
 		MaxAttempts:     manifest.Retry.MaxAttempts,
 		BaseDelay:       manifest.Retry.BaseDelay(),
 		MaxDelay:        manifest.Retry.MaxDelay(),
@@ -92,6 +94,11 @@ func run(manifestPath, taskPath, endpoint, outputDir string, batches int, seedOv
 		raw.Close()
 		return err
 	}
+	policyJSON, err := json.Marshal(task.Policy)
+	if err != nil {
+		raw.Close()
+		return fmt.Errorf("encode task policy: %w", err)
+	}
 	runner := providergate.Runner{
 		Coordinator: harness.Coordinator{
 			Proposer:      client,
@@ -104,6 +111,7 @@ func run(manifestPath, taskPath, endpoint, outputDir string, batches int, seedOv
 		TaskID:      task.TaskID,
 		Instruction: task.Instruction,
 		State:       state,
+		Policy:      policyJSON,
 		BaseSeed:    seed,
 	}, raw)
 	closeErr := raw.Close()

@@ -17,6 +17,7 @@ func TestRecordedProviderRequiresExactRequest(t *testing.T) {
 		TaskID:      "task-001",
 		Instruction: "read the file",
 		State:       json.RawMessage(`{"files":{}}`),
+		Policy:      json.RawMessage(`{"allowed_operation_classes":["filesystem.read"]}`),
 		ProposerID:  "agent-1",
 		Seed:        42,
 	}

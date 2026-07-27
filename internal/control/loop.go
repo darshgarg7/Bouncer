@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -106,6 +107,10 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 	}
 	started := time.Now()
 	state := task.NewState()
+	policyJSON, err := json.Marshal(task.Policy)
+	if err != nil {
+		return Result{}, fmt.Errorf("encode task policy: %w", err)
+	}
 	result := Result{
 		Condition:         "bouncer",
 		TaskID:            task.TaskID,
@@ -126,6 +131,7 @@ func (l Loop) Run(ctx context.Context, task benchmark.Task, seed int64) (Result,
 			TaskID:      task.TaskID,
 			Instruction: task.Instruction,
 			State:       stateJSON,
+			Policy:      policyJSON,
 			BaseSeed:    seed + int64(turn*l.Coordinator.ProposerCount),
 		}
 		initialCount := l.Coordinator.ProposerCount

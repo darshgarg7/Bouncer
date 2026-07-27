@@ -53,6 +53,35 @@ bin/bouncer-harness \
 
 The harness creates an append-only JSONL file under `benchmarks/results/` unless `-output` is supplied.
 
+### NVIDIA hosted API
+
+The checked-in NVIDIA manifest freezes the hosted endpoint and generation
+settings used for qualification. Keep only the credential in `.env`; settings
+inside `.env` are intentionally not applied because invisible overrides would
+make run hashes misleading. The field names and hosted endpoint follow
+[NVIDIA's model-specific API reference](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-ultra-550b-a55b-infer).
+
+```bash
+cp .env.example .env
+chmod 600 .env
+# Set NVIDIA_API_KEY in .env, then load it into this shell.
+set -a
+. ./.env
+set +a
+
+make build
+bin/bouncer-run \
+  -manifest configs/run-manifest.nvidia-hosted.json \
+  -task benchmarks/tasks/task-001.json \
+  -event-log benchmarks/results/nvidia-pilot-events.jsonl \
+  -output benchmarks/results/nvidia-pilot-result.json
+```
+
+`NVIDIA_API_KEY` and the older `NIM_API_KEY` name are both accepted, with
+`NIM_API_KEY` taking precedence when both are present. The hosted manifest uses
+NVIDIA's current `reasoning_budget`, `reasoning_effort`, and `top_p` request
+fields. `NVIDIA_PROFILE` is not an API request field and is not forwarded.
+
 For a self-hosted Nemotron 3 Ultra NIM, start the server with the `nemotron_v3` reasoning parser and freeze the container version in the benchmark record. The example manifest sends `chat_template_kwargs: {"enable_thinking": true}` with `thinking_token_budget`; `max_tokens` remains the total generation ceiling. Hosted endpoints that expose `reasoning_budget` must set `model.reasoning_budget_parameter` to that name in the copied manifest. Without the reasoning parser, reasoning markup may remain in assistant content and will correctly fail the strict JSON-beam decoder. See NVIDIA's [Nemotron 3 Ultra deployment guide](https://docs.nvidia.com/nim/large-language-models/latest/day-0/get-started-nemotron-3-ultra.html#control-thinking-budget).
 
 ## Complete static run

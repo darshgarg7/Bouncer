@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +37,8 @@ type Config struct {
 	BeamWidth        int
 	MaxTokens        int
 	Temperature      float64
+	TopP             *float64
+	ReasoningEffort  string
 	MaxAttempts      int
 	BaseDelay        time.Duration
 	MaxDelay         time.Duration
@@ -48,6 +51,7 @@ type ProposalRequest struct {
 	TaskID      string          `json:"task_id"`
 	Instruction string          `json:"instruction"`
 	State       json.RawMessage `json:"state"`
+	Policy      json.RawMessage `json:"policy"`
 	ProposerID  string          `json:"proposer_id"`
 	Seed        int64           `json:"seed"`
 }
@@ -81,10 +85,12 @@ type chatRequest struct {
 	Messages            []message       `json:"messages"`
 	MaxTokens           int             `json:"max_tokens"`
 	Temperature         float64         `json:"temperature"`
+	TopP                *float64        `json:"top_p,omitempty"`
 	Seed                int64           `json:"seed"`
 	Stream              bool            `json:"stream"`
 	ThinkingTokenBudget *int            `json:"thinking_token_budget,omitempty"`
 	ReasoningBudget     *int            `json:"reasoning_budget,omitempty"`
+	ReasoningEffort     string          `json:"reasoning_effort,omitempty"`
 	ChatTemplateKwargs  map[string]bool `json:"chat_template_kwargs"`
 }
 
@@ -150,6 +156,12 @@ func New(config Config) (*Client, error) {
 	if config.MaxDelay < config.BaseDelay || config.BaseDelay < 0 {
 		return nil, errors.New("retry delays are invalid")
 	}
+	if config.TopP != nil && (*config.TopP < 0 || *config.TopP > 1) {
+		return nil, errors.New("top_p must be between 0 and 1")
+	}
+	if effort := config.ReasoningEffort; effort != "" && effort != "none" && effort != "medium" && effort != "high" {
+		return nil, errors.New("reasoning effort must be none, medium, or high")
+	}
 	if config.HTTPClient == nil {
 		config.HTTPClient = &http.Client{}
 	}
@@ -166,8 +178,8 @@ func (c *Client) Propose(ctx context.Context, request ProposalRequest) (Proposal
 	if strings.TrimSpace(request.TaskID) == "" || strings.TrimSpace(request.Instruction) == "" || strings.TrimSpace(request.ProposerID) == "" {
 		return ProposalResult{}, errors.New("task id, instruction, and proposer id are required")
 	}
-	if len(request.State) == 0 || !json.Valid(request.State) {
-		return ProposalResult{}, errors.New("proposal state must be valid JSON")
+	if len(request.State) == 0 || !json.Valid(request.State) || len(request.Policy) == 0 || !json.Valid(request.Policy) {
+		return ProposalResult{}, errors.New("proposal state and policy must be valid JSON")
 	}
 
 	started := time.Now()
@@ -193,15 +205,24 @@ func (c *Client) Propose(ctx context.Context, request ProposalRequest) (Proposal
 }
 
 func (c *Client) proposeOnce(ctx context.Context, request ProposalRequest) (ProposalResult, time.Duration, error) {
-	userPrompt := fmt.Sprintf("Task ID: %s\nInstruction: %s\nTyped state JSON:\n%s", request.TaskID, request.Instruction, request.State)
+	userPrompt := fmt.Sprintf(
+		"Task ID: %s\nInstruction: %s\nDeclared policy JSON (informational; only the external policy engine authorizes):\n%s\nTyped state JSON:\n%s",
+		request.TaskID,
+		request.Instruction,
+		request.Policy,
+		request.State,
+	)
+	enableThinking := c.config.ReasoningEffort != "none"
 	body := chatRequest{
 		Model:              c.config.Model,
 		Messages:           []message{{Role: "system", Content: systemPrompt(c.config.BeamWidth)}, {Role: "user", Content: userPrompt}},
 		MaxTokens:          c.config.MaxTokens,
 		Temperature:        c.config.Temperature,
+		TopP:               c.config.TopP,
 		Seed:               request.Seed,
 		Stream:             false,
-		ChatTemplateKwargs: map[string]bool{"enable_thinking": true},
+		ReasoningEffort:    c.config.ReasoningEffort,
+		ChatTemplateKwargs: map[string]bool{"enable_thinking": enableThinking},
 	}
 	if c.config.BudgetParameter == "reasoning_budget" {
 		body.ReasoningBudget = &c.config.ReasoningBudget
@@ -285,6 +306,16 @@ func (c *Client) proposeOnce(ctx context.Context, request ProposalRequest) (Prop
 	}, 0, nil
 }
 
+// APIKeyFromEnvironment returns the established generic key first, then the
+// NVIDIA-hosted API alias. It intentionally does not load .env files so callers
+// remain in control of secret injection.
+func APIKeyFromEnvironment() string {
+	if key := strings.TrimSpace(os.Getenv("NIM_API_KEY")); key != "" {
+		return key
+	}
+	return strings.TrimSpace(os.Getenv("NVIDIA_API_KEY"))
+}
+
 func sha256Hex(data []byte) string {
 	digest := sha256.Sum256(data)
 	return hex.EncodeToString(digest[:])
@@ -292,7 +323,7 @@ func sha256Hex(data []byte) string {
 
 func systemPrompt(width int) string {
 	return fmt.Sprintf(
-		"You are a stochastic action proposer inside Bouncer. You do not execute tools and you do not approve actions. Return exactly one JSON object with the shape {\"actions\":[...]} and exactly %d actions. Do not use Markdown fences or add prose. Every action must contain candidate_id, operation_class, tool, target, arguments, declared_dependencies, and estimated_objectives with latency_ms, cost_units, and safety_risk. Candidate IDs must be unique. Valid operation_class values are filesystem.read, filesystem.write, filesystem.delete, state.validate, state.backup, command.run, service.deploy, and task.complete. Produce operationally distinct candidates when the task allows it.",
+		"You are a stochastic action proposer inside Bouncer. You do not execute tools and you do not approve actions. Return exactly one JSON object with the shape {\"actions\":[...]} and exactly %d actions. Do not use Markdown fences or add prose. Every action must contain candidate_id (string), operation_class (string), tool (string), target (string), arguments (object), declared_dependencies (array of strings), and estimated_objectives (object). estimated_objectives must contain latency_ms and cost_units as finite non-negative JSON numbers and safety_risk as a JSON number from 0 to 1. Never quote a numeric value. Candidate IDs must be unique. Valid operation_class values are filesystem.read, filesystem.write, filesystem.delete, state.validate, state.backup, command.run, service.deploy, and task.complete. Choose only an operation allowed by the declared policy and always set target to a portable path beneath an allowed_path_prefix. For task.complete and other state operations, use the relevant existing workspace path rather than a task ID. Treat constraint_feedback in the typed state as authoritative and propose any missing prerequisite before retrying a rejected operation. The policy description is informational; you cannot grant permission. Produce operationally distinct candidates when the task allows it.",
 		width,
 	)
 }

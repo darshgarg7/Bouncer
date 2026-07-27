@@ -59,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"expected 10 tasks, found {len(task_paths)}")
     endpoint = arguments.endpoint or str(run_manifest["model"]["endpoint"])
     api_key = os.environ.get(arguments.api_key_env, "")
+    if not api_key and arguments.api_key_env == "NIM_API_KEY":
+        api_key = os.environ.get("NVIDIA_API_KEY", "")
     if endpoint.startswith("https://") and not api_key:
         raise SystemExit(f"{arguments.api_key_env} must be set for an HTTPS provider endpoint")
 
@@ -91,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
         ),
         max_tokens=int(run_manifest["model"]["max_tokens"]),
         temperature=float(run_manifest["model"]["temperature"]),
+        top_p=(float(run_manifest["model"]["top_p"]) if "top_p" in run_manifest["model"] else None),
+        reasoning_effort=str(run_manifest["model"].get("reasoning_effort", "")),
         timeout_seconds=float(run_manifest["proposal"]["timeout_ms"]) / 1000,
     )
     model.validate()
@@ -184,6 +188,8 @@ def main(argv: list[str] | None = None) -> int:
             "model_id": run_manifest["model"]["id"],
             "endpoint": endpoint,
             "reasoning_budget_parameter": model.reasoning_budget_parameter,
+            "reasoning_effort": model.reasoning_effort,
+            "top_p": model.top_p,
         },
         "analysis_manifest": analysis,
         "summaries": summaries,

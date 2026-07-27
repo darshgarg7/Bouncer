@@ -134,8 +134,8 @@ func validateRequest(request nimclient.ProposalRequest) error {
 		strings.TrimSpace(request.ProposerID) == "" {
 		return errors.New("task id, instruction, and proposer id are required")
 	}
-	if len(request.State) == 0 || !json.Valid(request.State) {
-		return errors.New("proposal state must be valid JSON")
+	if len(request.State) == 0 || !json.Valid(request.State) || len(request.Policy) == 0 || !json.Valid(request.Policy) {
+		return errors.New("proposal state and policy must be valid JSON")
 	}
 	return nil
 }

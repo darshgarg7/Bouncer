@@ -30,6 +30,11 @@ func TestProposeAcceptsStopWithExactlyFiveActions(t *testing.T) {
 		if got := int(body["thinking_token_budget"].(float64)); got != 1024 {
 			t.Fatalf("got thinking_token_budget %d, want 1024", got)
 		}
+		messages := body["messages"].([]any)
+		user := messages[1].(map[string]any)["content"].(string)
+		if !strings.Contains(user, "Declared policy JSON") || !strings.Contains(user, "allowed_path_prefixes") {
+			t.Fatalf("proposal prompt omitted declared policy: %s", user)
+		}
 		writeResponse(t, writer, "stop", testBeamJSON(), 17)
 	}))
 	defer server.Close()
@@ -51,6 +56,15 @@ func TestProposeAcceptsStopWithExactlyFiveActions(t *testing.T) {
 	}
 }
 
+func TestProposeRequiresTypedPolicy(t *testing.T) {
+	client := newTestClient(t, "http://localhost", 1, nil)
+	request := testRequest()
+	request.Policy = nil
+	if _, err := client.Propose(context.Background(), request); err == nil || !strings.Contains(err.Error(), "state and policy") {
+		t.Fatalf("missing policy returned %v", err)
+	}
+}
+
 func TestProposeUsesHostedReasoningBudgetDialectExclusively(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		var body map[string]any
@@ -63,16 +77,29 @@ func TestProposeUsesHostedReasoningBudgetDialectExclusively(t *testing.T) {
 		if got := int(body["reasoning_budget"].(float64)); got != 1024 {
 			t.Fatalf("got reasoning_budget %d, want 1024", got)
 		}
+		if got := body["top_p"].(float64); got != 0.95 {
+			t.Fatalf("got top_p %v, want 0.95", got)
+		}
+		if got := body["reasoning_effort"].(string); got != "medium" {
+			t.Fatalf("got reasoning_effort %q, want medium", got)
+		}
+		kwargs := body["chat_template_kwargs"].(map[string]any)
+		if enabled, ok := kwargs["enable_thinking"].(bool); !ok || !enabled {
+			t.Fatalf("unexpected chat_template_kwargs: %+v", kwargs)
+		}
 		writeResponse(t, writer, "stop", testBeamJSON(), 17)
 	}))
 	defer server.Close()
 
+	topP := 0.95
 	client, err := New(Config{
 		BaseURL:         server.URL,
 		Model:           "test-model",
 		ReasoningBudget: 1024,
 		BudgetParameter: "reasoning_budget",
 		MaxTokens:       1536,
+		TopP:            &topP,
+		ReasoningEffort: "medium",
 		MaxAttempts:     1,
 	})
 	if err != nil {
@@ -80,6 +107,18 @@ func TestProposeUsesHostedReasoningBudgetDialectExclusively(t *testing.T) {
 	}
 	if _, err := client.Propose(context.Background(), testRequest()); err != nil {
 		t.Fatalf("Propose returned error: %v", err)
+	}
+}
+
+func TestAPIKeyFromEnvironmentPrefersGenericNameAndSupportsNVIDIAAlias(t *testing.T) {
+	t.Setenv("NIM_API_KEY", "")
+	t.Setenv("NVIDIA_API_KEY", "nvidia-key")
+	if got := APIKeyFromEnvironment(); got != "nvidia-key" {
+		t.Fatalf("got key %q from NVIDIA alias", got)
+	}
+	t.Setenv("NIM_API_KEY", "generic-key")
+	if got := APIKeyFromEnvironment(); got != "generic-key" {
+		t.Fatalf("got key %q, want generic key precedence", got)
 	}
 }
 
@@ -205,6 +244,7 @@ func testRequest() ProposalRequest {
 		TaskID:      "task-001",
 		Instruction: "Inspect the file.",
 		State:       json.RawMessage(`{"completed_operations":[],"files":{}}`),
+		Policy:      json.RawMessage(`{"allowed_operation_classes":["filesystem.read"],"allowed_path_prefixes":["workspace/"]}`),
 		ProposerID:  "agent-1",
 		Seed:        42,
 	}

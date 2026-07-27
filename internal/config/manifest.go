@@ -21,12 +21,14 @@ type Manifest struct {
 }
 
 type ModelConfig struct {
-	ID                       string  `json:"id"`
-	Endpoint                 string  `json:"endpoint"`
-	ReasoningBudget          int     `json:"reasoning_budget"`
-	ReasoningBudgetParameter string  `json:"reasoning_budget_parameter,omitempty"`
-	MaxTokens                int     `json:"max_tokens"`
-	Temperature              float64 `json:"temperature"`
+	ID                       string   `json:"id"`
+	Endpoint                 string   `json:"endpoint"`
+	ReasoningBudget          int      `json:"reasoning_budget"`
+	ReasoningBudgetParameter string   `json:"reasoning_budget_parameter,omitempty"`
+	MaxTokens                int      `json:"max_tokens"`
+	Temperature              float64  `json:"temperature"`
+	TopP                     *float64 `json:"top_p,omitempty"`
+	ReasoningEffort          string   `json:"reasoning_effort,omitempty"`
 }
 
 type ProposalConfig struct {
@@ -87,6 +89,12 @@ func (m Manifest) Validate() error {
 	}
 	if m.Model.Temperature < 0 || m.Model.Temperature > 2 {
 		return errors.New("manifest temperature must be between 0 and 2")
+	}
+	if m.Model.TopP != nil && (*m.Model.TopP < 0 || *m.Model.TopP > 1) {
+		return errors.New("manifest top_p must be between 0 and 1")
+	}
+	if effort := m.Model.ReasoningEffort; effort != "" && effort != "none" && effort != "medium" && effort != "high" {
+		return errors.New("manifest reasoning_effort must be none, medium, or high")
 	}
 	if m.Proposal.ProposerCount < 1 || m.Proposal.ProposerCount > 16 ||
 		m.Proposal.BeamWidth < 1 || m.Proposal.BeamWidth > 16 || m.Proposal.TimeoutMS <= 0 {

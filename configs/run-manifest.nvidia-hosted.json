@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.1.0",
+  "benchmark_version": "0.1.0",
+  "model": {
+    "id": "nvidia/nemotron-3-ultra-550b-a55b",
+    "endpoint": "https://integrate.api.nvidia.com/v1",
+    "reasoning_budget": 1024,
+    "reasoning_budget_parameter": "reasoning_budget",
+    "reasoning_effort": "medium",
+    "max_tokens": 1536,
+    "temperature": 1.0,
+    "top_p": 0.95
+  },
+  "proposal": {
+    "proposer_count": 1,
+    "beam_width": 1,
+    "timeout_ms": 240000
+  },
+  "retry": {
+    "max_attempts": 3,
+    "base_delay_ms": 250,
+    "max_delay_ms": 4000
+  },
+  "benchmark": {
+    "seed": 42,
+    "max_turns": 8,
+    "task_timeout_ms": 300000,
+    "transport": "in_process"
+  }
+}

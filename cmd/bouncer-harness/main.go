@@ -22,6 +22,7 @@ import (
 type taskSpec struct {
 	TaskID       string          `json:"task_id"`
 	Instruction  string          `json:"instruction"`
+	Policy       json.RawMessage `json:"policy"`
 	InitialState json.RawMessage `json:"initial_state"`
 }
 
@@ -65,13 +66,15 @@ func run(manifestPath, taskPath, outputPath string) error {
 
 	client, err := nimclient.New(nimclient.Config{
 		BaseURL:         manifest.Model.Endpoint,
-		APIKey:          os.Getenv("NIM_API_KEY"),
+		APIKey:          nimclient.APIKeyFromEnvironment(),
 		Model:           manifest.Model.ID,
 		ReasoningBudget: manifest.Model.ReasoningBudget,
 		BudgetParameter: manifest.Model.BudgetParameter(),
 		BeamWidth:       manifest.Proposal.BeamWidth,
 		MaxTokens:       manifest.Model.MaxTokens,
 		Temperature:     manifest.Model.Temperature,
+		TopP:            manifest.Model.TopP,
+		ReasoningEffort: manifest.Model.ReasoningEffort,
 		MaxAttempts:     manifest.Retry.MaxAttempts,
 		BaseDelay:       manifest.Retry.BaseDelay(),
 		MaxDelay:        manifest.Retry.MaxDelay(),
@@ -107,6 +110,7 @@ func run(manifestPath, taskPath, outputPath string) error {
 		TaskID:      task.TaskID,
 		Instruction: task.Instruction,
 		State:       task.InitialState,
+		Policy:      task.Policy,
 		BaseSeed:    manifest.Benchmark.Seed,
 	})
 	if err != nil {
@@ -162,14 +166,15 @@ func loadTask(path string) (taskSpec, error) {
 	var envelope struct {
 		TaskID       string          `json:"task_id"`
 		Instruction  string          `json:"instruction"`
+		Policy       json.RawMessage `json:"policy"`
 		InitialState json.RawMessage `json:"initial_state"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	if err := decoder.Decode(&envelope); err != nil {
 		return taskSpec{}, fmt.Errorf("decode task: %w", err)
 	}
-	if envelope.TaskID == "" || envelope.Instruction == "" || len(envelope.InitialState) == 0 {
-		return taskSpec{}, errors.New("task id, instruction, and initial state are required")
+	if envelope.TaskID == "" || envelope.Instruction == "" || len(envelope.Policy) == 0 || len(envelope.InitialState) == 0 {
+		return taskSpec{}, errors.New("task id, instruction, policy, and initial state are required")
 	}
 	return taskSpec(envelope), nil
 }

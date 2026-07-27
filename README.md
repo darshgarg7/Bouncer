@@ -142,6 +142,10 @@ make coverage
 make build
 ```
 
+For a credentialed NVIDIA-hosted pilot, use the frozen
+`configs/run-manifest.nvidia-hosted.json` configuration and the instructions in
+the [operating guide](docs/OPERATIONS.md#nvidia-hosted-api). Never commit `.env`.
+
 Start the deterministic OpenAI-compatible simulator:
 
 ```bash

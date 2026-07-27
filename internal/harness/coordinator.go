@@ -25,6 +25,7 @@ type Request struct {
 	TaskID      string
 	Instruction string
 	State       json.RawMessage
+	Policy      json.RawMessage
 	BaseSeed    int64
 }
 
@@ -73,6 +74,7 @@ func (c Coordinator) ProposeRange(
 				TaskID:      request.TaskID,
 				Instruction: request.Instruction,
 				State:       request.State,
+				Policy:      request.Policy,
 				ProposerID:  proposerID,
 				Seed:        request.BaseSeed + int64(index),
 			})

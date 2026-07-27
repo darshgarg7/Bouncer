@@ -55,12 +55,21 @@ class NIMClientTests(unittest.TestCase):
             reasoning_budget=100,
             reasoning_budget_parameter="reasoning_budget",
             max_tokens=200,
+            top_p=0.95,
+            reasoning_effort="medium",
             timeout_seconds=7,
         )
         with patch("benchmarking.nim_client.urllib.request.urlopen", fake_open):
             result = propose(
                 model,
-                {"task_id": "task-001", "instruction": "finish"},
+                {
+                    "task_id": "task-001",
+                    "instruction": "finish",
+                    "policy": {
+                        "allowed_operation_classes": ["task.complete"],
+                        "allowed_path_prefixes": ["workspace/"],
+                    },
+                },
                 {"completed_operations": [], "files": {}},
                 42,
                 beam=False,
@@ -71,6 +80,9 @@ class NIMClientTests(unittest.TestCase):
         self.assertEqual("Bearer secret", request.get_header("Authorization"))
         self.assertEqual(100, payload["reasoning_budget"])
         self.assertNotIn("thinking_token_budget", payload)
+        self.assertEqual(0.95, payload["top_p"])
+        self.assertEqual("medium", payload["reasoning_effort"])
+        self.assertTrue(payload["chat_template_kwargs"]["enable_thinking"])
         self.assertEqual(7, captured["timeout"])
         self.assertEqual(30, result.total_tokens)
 
@@ -81,6 +93,14 @@ class NIMClientTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "budget parameter"):
             model.validate()
+
+    def test_model_config_rejects_invalid_hosted_controls(self) -> None:
+        with self.assertRaisesRegex(ValueError, "top_p"):
+            ModelConfig(endpoint="https://provider.example/v1", top_p=1.01).validate()
+        with self.assertRaisesRegex(ValueError, "reasoning effort"):
+            ModelConfig(
+                endpoint="https://provider.example/v1", reasoning_effort="balanced"
+            ).validate()
 
 
 if __name__ == "__main__":

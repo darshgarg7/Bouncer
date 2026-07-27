@@ -57,6 +57,7 @@ func TestMockNIMCompletesOneHundredThreeCallBatches(t *testing.T) {
 			TaskID:      "task-001",
 			Instruction: "mock batch",
 			State:       json.RawMessage(`{"completed_operations":[],"files":{}}`),
+			Policy:      json.RawMessage(`{"allowed_operation_classes":["filesystem.read"]}`),
 			BaseSeed:    int64(batch * 3),
 		})
 		if err != nil {

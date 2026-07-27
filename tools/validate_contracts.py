@@ -68,6 +68,10 @@ def main() -> None:
         ROOT / "schemas/run-manifest.schema.json",
         ROOT / "configs/run-manifest.synthetic-v1.json",
     )
+    validate(
+        ROOT / "schemas/run-manifest.schema.json",
+        ROOT / "configs/run-manifest.nvidia-hosted.json",
+    )
     task_schema = ROOT / "schemas/task.schema.json"
     task_paths = sorted((ROOT / "benchmarks/tasks").glob("task-*.json"))
     if len(task_paths) != 10:

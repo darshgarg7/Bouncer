@@ -61,7 +61,7 @@ The default proposal budget is one proposer returning one action because it won 
 
 ## Proposal plane
 
-`internal/provider` exposes a provider-neutral `Propose` contract. The OpenAI-compatible adapter implements bounded retry, reasoning-budget dialects, strict response limits, exact finish-reason classification, provider usage, and trace propagation. The recorded adapter returns a response only when task, proposer, seed, instruction, and typed state match an immutable record.
+`internal/provider` exposes a provider-neutral `Propose` contract. The proposer receives the task instruction, typed state, and a read-only copy of the declared policy so it can avoid obviously inadmissible operations and targets; the copy has no authorization authority. The OpenAI-compatible adapter implements bounded retry, reasoning-budget dialects, strict response limits, exact finish-reason classification, provider usage, and trace propagation. The recorded adapter returns a response only when task, proposer, seed, instruction, typed state, and declared policy match an immutable record.
 
 `internal/harness` assigns stable proposer identities and seeds, issues concurrent calls under one round deadline, cancels on failure, and returns results in deterministic proposer order. `ProposeRange` lets adaptive mode request a stable subset before expanding.
 

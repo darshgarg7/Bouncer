@@ -25,6 +25,19 @@ func TestLoadFrozenSyntheticManifest(t *testing.T) {
 	}
 }
 
+func TestLoadNVIDIAHostedManifest(t *testing.T) {
+	manifest, err := LoadManifest("../../configs/run-manifest.nvidia-hosted.json")
+	if err != nil {
+		t.Fatalf("LoadManifest returned error: %v", err)
+	}
+	if manifest.Model.ReasoningEffort != "medium" || manifest.Model.TopP == nil || *manifest.Model.TopP != 0.95 {
+		t.Fatalf("unexpected hosted model settings: %+v", manifest.Model)
+	}
+	if manifest.Model.BudgetParameter() != "reasoning_budget" || manifest.Proposal.TimeoutMS != 240000 {
+		t.Fatalf("unexpected hosted provider contract: %+v", manifest)
+	}
+}
+
 func TestManifestRejectsProposalCountsOutsideBounds(t *testing.T) {
 	for _, count := range []int{-1, 0, 17} {
 		manifest := validManifest()
@@ -71,6 +84,26 @@ func TestModelBudgetParameterDefaultsAndValidatesProviderDialects(t *testing.T) 
 	manifest.Model.ReasoningBudgetParameter = "unknown"
 	if err := manifest.Validate(); err == nil {
 		t.Fatal("Validate accepted an unknown budget parameter")
+	}
+}
+
+func TestModelSamplingAndReasoningSettingsAreBounded(t *testing.T) {
+	topP := 0.95
+	manifest := validManifest()
+	manifest.Model.TopP = &topP
+	manifest.Model.ReasoningEffort = "medium"
+	if err := manifest.Validate(); err != nil {
+		t.Fatalf("Validate rejected hosted model settings: %v", err)
+	}
+	invalidTopP := 1.01
+	manifest.Model.TopP = &invalidTopP
+	if err := manifest.Validate(); err == nil {
+		t.Fatal("Validate accepted top_p above one")
+	}
+	manifest = validManifest()
+	manifest.Model.ReasoningEffort = "balanced"
+	if err := manifest.Validate(); err == nil {
+		t.Fatal("Validate accepted an unknown reasoning effort")
 	}
 }
 

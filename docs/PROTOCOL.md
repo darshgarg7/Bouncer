@@ -29,6 +29,11 @@ Remote transport requires HTTPS by default. Plain HTTP exists only behind an exp
 
 ## Candidate action
 
+Proposal requests include the task instruction, typed state, and declared task
+policy. The policy copy helps the proposer choose a plausible operation and
+target, but it is informational: only the canonical evaluator can admit an
+action, and the execution boundary checks the policy again.
+
 ```json
 {
   "candidate_id": "agent-1-candidate-3",

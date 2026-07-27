@@ -31,7 +31,9 @@
           "enum": ["thinking_token_budget", "reasoning_budget"]
         },
         "max_tokens": {"type": "integer", "minimum": 1},
-        "temperature": {"type": "number", "minimum": 0, "maximum": 2}
+        "temperature": {"type": "number", "minimum": 0, "maximum": 2},
+        "top_p": {"type": "number", "minimum": 0, "maximum": 1},
+        "reasoning_effort": {"enum": ["none", "medium", "high"]}
       }
     },
     "proposal": {
