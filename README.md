@@ -1,6 +1,6 @@
 # Bouncer
 
-> **A deterministic authorization and evidence layer for AI agents.**
+> **A deterministic authorization layer for AI agent execution.**
 
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
@@ -49,16 +49,39 @@ detection, and learned-routing shadow mode.
 ## Architecture
 
 ```mermaid
-flowchart LR
-    M["Model proposal"] --> D["Strict decoder"]
-    D --> P["Deterministic authorization"]
-    P -->|"rejected"| A["Audit evidence"]
-    P -->|"admitted set"| R["Calibrated router"]
-    R --> E["Bounded executor"]
-    E --> V["Transition verification"]
-    V --> L[("Hash-chained lifecycle evidence")]
+flowchart TD
+    S["Task + typed state"] --> O["Proposal coordinator"]
+    O --> D["Strict response decoder"]
+    D --> P["Deterministic policy projection"]
+
+    P -->|"rejected + feedback"| S
+    P -->|"admitted candidates"| C["Versioned objective calibration"]
+
+    C --> B["Baseline router"]
+    C --> M["Optional learned outcome scoring"]
+    M --> H["Risk gate + Pareto holding"]
+
+    B --> X["Final selection"]
+    H -->|"shadow: compare only"| X
+    H -->|"active: bounded override"| X
+
+    X --> G["Authenticated execution gateway"]
+    G --> E["Virtual, rooted, or remote executor"]
+    E --> V["Transition contract validation"]
+    V --> T["Measured outcome + next state"]
+
+    T --> N["Rules + optional anomaly scoring"]
+    N -->|"task incomplete and not gated"| S
+
+    O --> L[("Hash-chained lifecycle evidence")]
     P --> L
-    R --> L
+    C --> L
+    X --> L
+    T --> L
+    N --> L
+
+    L --> Q["Offline training and evaluation"]
+    Q -. "explicitly promoted artifacts" .-> M
 ```
 
 ### The core invariant
@@ -126,7 +149,7 @@ changes invalidate stale evidence automatically.
 
 ## Ownership
 
-**Bouncer is an independent personal engineering project by [Darsh Garg](docs/PROJECT_HISTORY.md).** I designed its architecture and trust boundaries, implemented and evaluated the system, designed the experiments, and own its technical decisions and limitations. Development included AI-assisted tooling; methodology and authorship are documented in the [project history](docs/PROJECT_HISTORY.md).
+**Bouncer is an independent personal engineering project by [Darsh Garg](docs/PROJECT_HISTORY.md).** I designed its architecture and trust boundaries, implemented and evaluated the system, designed the experiments, and own its technical decisions and limitations. Methodology and authorship are documented in the [project history](docs/PROJECT_HISTORY.md).
 
 ## Limitations
 
