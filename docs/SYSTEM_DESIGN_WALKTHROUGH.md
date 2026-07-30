@@ -1,162 +1,123 @@
-# Designing a deterministic control plane for AI-agent actions
+# System design walkthrough & architecture
 
-An agent that can call a tool has crossed an important boundary: its output is
-no longer merely text. A plausible-looking response might now overwrite a
-configuration file, delete state, or trigger a deployment. JSON schemas make a
-tool call machine-readable, but they do not make it authorized.
+> **A deterministic control plane for AI-agent actions.**
 
-Bouncer is a personal research prototype built around one design rule:
+An agent that can call a tool has crossed an important boundary: its output is no longer merely text. A plausible-looking response might now overwrite a configuration file, delete state, or trigger a deployment. JSON schemas make a tool call machine-readable, but they do not make it authorized.
 
-> The model may propose an action, but deterministic software must decide
-> whether that action is allowed.
+Bouncer is built around one central design rule:
 
-The interesting part is not the model wrapper. It is the boundary between a
-stochastic proposal and an attributable state transition.
+> **The model may propose an action, but deterministic software must decide whether that action is allowed.**
 
-## The system at a glance
+The interesting part is not the model wrapper. It is the boundary between a stochastic proposal and an attributable state transition.
+
+---
+
+## Design Invariants
+
+1. **Model output is untrusted data** and has zero authorization authority.
+2. **Canonical Go policy is deterministic** and fail closed.
+3. **Routing can choose only from candidates admitted by policy.**
+4. **The router accepts trusted routing objectives**, never provider self-ratings directly.
+5. **An execution response is accepted only if it matches** the selected action's deterministic transition contract.
+6. **Every selection policy has explicit semantics** and a logged behavior probability.
+7. **Statistical analysis is offline** and cannot add permissions.
+8. **Runtime anomaly scoring observes verified outcomes**; active mode acts as a post-execution circuit breaker for subsequent actions, not authorization for or prevention of the triggering action.
+
+---
+
+## Control Loop & Runtime Topology
 
 ```mermaid
-flowchart LR
-    T["Task, policy, and typed state"] --> M["Untrusted model proposer"]
-    M --> D["Strict action decoder"]
-    D --> P["Deterministic policy evaluator"]
-    P -->|"rejected"| F["Canonical constraint feedback"]
-    F --> M
-    P -->|"feasible actions"| R["Explicit router"]
-    R --> E["Virtual or remote executor"]
-    E --> V["Independent transition verification"]
-    V --> A["Optional static anomaly score"]
-    A -->|"continue"| T
-    A -->|"active hit"| S["Stop subsequent actions"]
-    D --> L[("Hash-chained event log")]
-    P --> L
-    R --> L
-    A --> L
+flowchart TD
+    T["Task: instruction, policy, oracle"] --> P["LLM proposes typed action"]
+    P --> D{"Strict JSON decoding"}
+    D -->|"Malformed"| E["Fail run"]
+    D -->|"Valid"| A{"Deterministic policy projection"}
+    A -->|"Rejected"| F["Canonical constraint feedback"]
+    F --> P
+    A -->|"Admitted"| C["Trusted objective calibration"]
+    C --> R["Select safe candidate"]
+    R --> X["Execute typed transition"]
+    X --> V{"Verify state delta"}
+    V -->|"Mismatch"| E
+    V -->|"Verified"| M["Post-execution monitoring"]
+    M --> O{"task.complete & oracle pass?"}
+    O -->|"No"| P
+    O -->|"Yes"| S["Successful terminal result"]
+    T -.-> L[("Hash-chained log")]
+    P & A & R & X & M & S -.-> L
 ```
 
-The model receives the task, current state, and a read-only description of the
-declared policy. Showing the policy helps it avoid obviously invalid proposals,
-but does not give it authority: the Go evaluator independently applies the
-policy to every candidate.
+### The Seven Stages of Execution
 
-## The state machine
+The runtime carries a typed state through seven distinct stages:
 
-The prototype represents the world as a small typed state:
+1. **Proposal:** Obtain a strictly decoded candidate set from the LLM provider.
+2. **Admission:** Evaluate every candidate with the canonical Go policy evaluator ([evaluator.go](../internal/policy/evaluator.go)).
+3. **Calibration:** Derive trusted routing objectives under a versioned artifact ([calibration.go](../internal/calibration/calibration.go)).
+4. **Routing:** Choose one candidate exclusively from the admitted set ([router.go](../internal/router/router.go)).
+5. **Execution:** Submit the selected candidate and expected state identity to the virtual, remote, or rooted Linux executor ([executor](../internal/executor)).
+6. **Verification:** Validate the observed state transition against the expected deterministic delta.
+7. **Recording:** Append the decision and observed result to a tamper-evident SHA-256 hash chain ([jsonl.go](../internal/eventlog/jsonl.go)).
 
-| Field | Purpose |
-| --- | --- |
-| `files` | Materialized virtual paths and contents |
-| `completed_operations` | History used by the dependency DAG |
-| `mutation_count` | Enforces the task's mutation budget |
-| `constraint_feedback` | Canonical reasons rejected actions failed |
-| `task_complete` | Terminates the control loop |
+---
 
-Actions use one contract regardless of which model proposed them. An action
-names an operation class, tool label, target, arguments, declared dependencies,
-and predicted latency, cost, and risk. Those objective values are treated as
-untrusted estimates. A separately loaded calibration artifact creates the only
-objective values the router can consume. The bootstrap artifact gives the raw
-estimates zero influence; a reviewed fitted artifact may grant bounded
-influence, but it can never add permission.
+## Authorizing an Action Is Not Enough: Transition Verification
 
-The dependency DAG captures operational prerequisites. For example, a write
-requires a read, and task completion requires validation. The current file is
-small enough to inspect directly in
-[`configs/skill_dag.json`](../configs/skill_dag.json).
+An AI agent can propose a valid operation, pass a policy check, and still cause the wrong state change if the executor is buggy, compromised, or operating on a different state than policy evaluated. Bouncer treats authorization and transition verification as separate boundaries.
 
-## One control-loop turn
+### Expected vs. Observed State
 
-Each turn follows the same sequence:
+The virtual executor applies the selected action to an in-memory typed state and returns a structured `StateDiff`:
+- `created[]`
+- `modified[]`
+- `deleted[]`
+- `completed_operation`
 
-1. Serialize the current state and declared task policy.
-2. Ask one or more proposers for a bounded candidate beam.
-3. Reject malformed or truncated responses before policy evaluation.
-4. Evaluate each candidate with the canonical Go policy.
-5. Return canonical feedback if no candidate is feasible.
-6. Convert raw estimates into trusted routing objectives under the hashed artifact.
-7. Select only among policy-passing candidates using the named routing rule.
-8. Execute through the virtual executor or authenticated remote gateway.
-9. Accept the result only after deterministic transition verification.
-10. Build a trusted monitoring window and, when configured, score the immutable
-    Isolation Forest artifact.
-11. Record the decision and continue until completion, the turn limit, or an
-    active anomaly gate.
+The remote executor boundary includes an idempotency key derived from the candidate and input state:
+$$\text{IdempotencyKey} = \text{SHA-256}(\text{JSON}(\text{State}, \text{Policy}, \text{Candidate}))$$
 
-There is no “best effort” fallback that executes a rejected action. If every
-candidate fails, the state changes only by gaining constraint feedback.
+The response is strictly decoded, matched to request identity, and validated before caller state is updated:
 
-The anomaly gate is deliberately post-execution. Its progress, latency, and
-transition-surprise features do not exist until an admitted action has executed
-and the transition has been verified. A threshold crossing can therefore stop
-later actions, but cannot undo or claim prevention of the triggering action.
-The checked-in artifact is shadow-only pending labeled held-out qualification.
+> **Invariant:** The runtime state advances only after the executor response has been decoded, attributed, and validated against the authorized request.
 
-## Why transition verification matters
+---
 
-Remote execution introduces a second trust problem. Even if the selected action
-was authorized, the control plane should not blindly trust a worker's response.
+## Event Chain & Lifecycle Evidence
 
-Bouncer computes an idempotency key over the selected action, input state, and
-policy. The reference sandbox claims that key before invoking its backend and
-persists the first completed response. Retries replay that response rather than
-repeating the side effect. A claim without a completed response is treated as
-indeterminate and requires reconciliation.
+Every material stage emits a lifecycle event. Event $N$ includes the SHA-256 digest of event $N-1$, plus its own canonical content hash. The verifier enforces:
+- The first event is `run.started`;
+- Every event shares consistent run and task identities;
+- Sequence numbers are strictly contiguous;
+- No event follows a terminal event; and
+- The log ends in exactly one `run.completed` or `run.failed` event.
 
-The caller then replays the same typed action locally against a clone of the
-input state. The returned state, created/modified/deleted path sets, mutation
-classification, operation history, and completion flag must exactly match that
-deterministic transition. A mismatch cannot replace caller state.
+**External Trust Anchors:** A hash chain is tamper-evident, but whole-chain replacement requires an external anchor. Bouncer exposes the terminal digest for independent external storage to detect full replacement.
 
-This is intentionally narrower than proving the worker is secure. It establishes
-that the response is consistent with the selected action's modeled transition.
-Operating-system containment remains a separate qualification problem.
+---
 
-## Evidence is a separate boundary
+## Sandbox Containment & Idempotency Semantics
 
-Every run records proposal completion, policy decisions, routing, execution,
-and the terminal outcome as JSONL events. Events carry a sequence number and a
-SHA-256 link to the previous event. The verifier recomputes those hashes rather
-than trusting stored values.
+### Rooted Linux Executor (`openat2`)
+For host-level filesystem operations, Bouncer provides a rooted Linux executor backend ([rooted_linux.go](../internal/executor/rooted_linux.go)) utilizing:
+- `openat2` with `RESOLVE_BENEATH` and `RESOLVE_NO_SYMLINKS`;
+- Single-link checks to reject hard-linked targets;
+- Bounded read/write buffer sizes;
+- Explicit rejection of unrestricted shell commands.
 
-The event stream is evidence for reproduction and debugging, not an authorization
-input. Offline estimators consume separately prepared observations and cannot
-change live policy.
+### Idempotency & Ambiguous Failure (`409 Indeterminate`)
+When a mutation request is submitted, Bouncer claims an idempotency key before invoking the backend, recording the result only upon durable completion. If a process or network crash occurs before recording:
+- Bouncer treats the key as **`409 Indeterminate`**.
+- It **refuses automatic retries** for indeterminate mutations, prioritizing state integrity over blind availability.
 
-## The negative result that simplified the design
+---
 
-The initial design emphasized three proposers returning five candidates each.
-In the synthetic integration study, that 3×5 configuration preserved the fixture
-outcomes but used far more synthetic tokens than the simpler baseline. A later
-policy-held-constant study found that one proposer plus the same deterministic
-policy was the lowest-cost passing configuration.
+## Compatibility and Deprecation Policy
 
-The default was therefore reduced to one proposer returning one action. Wider
-beams, ensembles, adaptive expansion, Pareto routing, and exploration remain
-explicit experiments. The control plane does not depend on them being useful.
+Before v1.0, Bouncer may change command flags, schemas, manifests, and event payloads between minor releases. Every breaking change must:
+1. Increment the affected `schema_version` or artifact version;
+2. Add a compatibility test or fail with an explicit migration error;
+3. Document the migration in `CHANGELOG.md`; and
+4. Preserve the old decoder for at least one minor release when doing so does not weaken a security boundary.
 
-That result captures the broader engineering lesson: safety value should be
-attributed to the deterministic boundary, not bundled with extra model calls.
-
-## What the prototype does not claim
-
-Bouncer is not a production sandbox or a general agent-safety proof. The
-checked-in benchmark tasks are authored smoke tests. A three-task hosted-model
-pilot exercises the complete virtual control loop, but is not comparative
-provider qualification. The Linux rooted executor is a narrow filesystem
-broker, not a general tool environment. Adversarial-containment, recovery, and
-independent-review work remain open.
-
-The design contribution is smaller and more concrete: a model proposal can be
-treated as untrusted input, passed through an inspectable authorization boundary,
-executed under an explicit transition contract, and recorded with enough
-structure to audit what the system believed happened.
-
-## Where to go next
-
-- Read the full [architecture](ARCHITECTURE.md) and [threat model](THREAT_MODEL.md).
-- Inspect the canonical evaluator in
-  [`internal/policy`](../internal/policy) and the transition checks in
-  [`internal/executor/remote.go`](../internal/executor/remote.go).
-- Reproduce the local path from the [operating guide](OPERATIONS.md).
-- Compare supported and unsupported statements in the
-  [claim register](CLAIMS.md).
+*Supported Toolchains:* Go 1.25+ and Python 3.11+. Linux is required for rooted-executor qualification; macOS supports the virtual development path.
