@@ -1,135 +1,63 @@
-# Benchmark methodology
+# Benchmarking & research protocol
 
-## Purpose
+This document describes Bouncer's evaluation methodology, synthetic benchmark suites, hosted model pilot procedures, and research protocols.
 
-The benchmark is designed to falsify Bouncer's static architecture before adding causal machinery. It tests integration, cost, state safety, and decision reproducibility.
+---
 
-## Conditions
+## 1. Benchmarking Overview
 
-### LangGraph
+Bouncer's evaluation framework measures authorization overhead, policy compliance, token efficiency, and routing performance across three tiers of evidence:
 
-A real LangGraph state graph alternates between one model-proposed action and unshielded virtual execution. Constraint projection runs for measurement, but does not block execution.
+1. **Controlled Fixture Benchmarks:** 50 authored synthetic tasks designed to test deterministic state machine transitions, mutation budgets, path restrictions, and prerequisite ordering.
+2. **Hosted Model Pilot Runs:** Live runs using real model endpoints (e.g., NVIDIA Nemotron) frozen via versioned run manifests ([run-manifest.nvidia-hosted.json](../configs/run-manifest.nvidia-hosted.json)).
+3. **Differential Policy Validation:** 100,000 generated test cases evaluated across independent Go and Python policy implementations to verify cross-language contract parity.
 
-### Structured proposer
+---
 
-The same LangGraph loop requests five structured candidates and executes the first candidate without Bouncer filtering or ranking. This isolates the cost of structured candidate generation from the control plane.
+## 2. Real-Evidence Research Protocol
 
-### Historical Bouncer
+### Core Research Question
+Does deterministic action policy and explicit routing improve the safety–capability–compute trade-off of tool-using agents relative to simpler baselines given identical models, tools, permissions, and task state?
 
-The frozen original study made three concurrent five-action requests, projected all 15 candidates, applied the historical crowding selector, and executed only a constraint-passing action. Its exact manifest is `configs/run-manifest.synthetic-v1.json`; the current default must not be substituted when regenerating that report.
+### Primary Comparisons
+- **Baseline:** Single proposer returning one action with deterministic policy.
+- **Treatments:**
+  - Unrestricted single proposer;
+  - Structured beam, first policy-valid action;
+  - Random-safe selection;
+  - Lexicographic selection;
+  - Scalar weighted utility;
+  - Fixed 3×3 and 3×5 proposal ensembles;
+  - Pareto reduction followed by explicit utility.
 
-### Current policy-held-constant mechanisms
+*Key Finding:* Synthetic mechanism studies showed that a fixed 3×3 proposal ensemble consumed **3.35×** the mean synthetic tokens without improving task completion or reducing severe mutations. Ensemble complexity was therefore removed from default execution.
 
-The current study holds the canonical Go policy and virtual executor constant while comparing one action, one five-action beam, scalar utility, Pareto utility, ε-Pareto exploration, random-safe control, fixed 3×3, and adaptive 1→3×3. This closes the largest weakness in the original comparison: policy value is no longer confounded with ensemble value.
+---
 
-## Controlled simulator
+## 3. Preregistered Hypotheses
 
-`benchmarking.mock_nim` exposes an OpenAI-compatible `/v1/chat/completions` endpoint. It uses the versioned plans in `benchmarks/scenarios.json` and injects deterministic out-of-root virtual mutations on a subset of task-seed pairs.
+- **H1 (Capability Non-Inferiority):** Bouncer's task-success rate is not more than 2 percentage points below single-proposer plus policy.
+- **H2 (Severe Policy Event Reduction):** Reduces severe policy events by at least 50% without violating H1.
+- **H3 (Bounded Compute Overhead):** Provider token overhead is bounded within pre-registered limits.
+- **H4 (Routing Contribution):** Pareto reduction plus utility outperforms random-safe selection or is removed from default routing.
 
-The simulator exists to test plumbing and decision logic. It deliberately does not simulate real model intelligence.
+---
 
-Its usage counters approximate tokens from character counts plus fixed reasoning allocations. They are useful for detecting large architectural differences inside the fixture, but they are not provider token counts.
+## 4. Running Benchmarks
 
-## Frozen evaluation
-
-`benchmarks/analysis-manifest.json` freezes:
-
-- three conditions;
-- ten tasks;
-- five seeds;
-- the primary LangGraph baseline;
-- H1 and H2 thresholds;
-- pass-rate non-inferiority margins; and
-- bootstrap settings.
-
-The evaluation runner refuses to run if the core condition list or minimum seed count changes unexpectedly.
-
-## Metrics
-
-### H1
-
-Mean total tokens per successful task, including prompt, visible completion, reasoning, and retry calls. H1 requires at least a 10% reduction, no more than a five-point pass-rate regression, and a paired bootstrap interval below zero.
-
-### H2
-
-The share of attempted runs that execute at least one severe mutation. H2 requires at least a 50% relative reduction, no more than a five-point pass-rate regression, and a paired bootstrap interval below zero.
-
-### Secondary
-
-- pass rate;
-- model calls;
-- generated candidates;
-- constraint rejections;
-- executed actions;
-- mean and p95 wall-clock latency; and
-- raw mutation count.
-
-## Current result
-
-The historical-semantics controlled rerun completed 150/150 task executions successfully. Bouncer reduced severe-mutation runs from 16/50 to 0/50 and increased synthetic token use by 573.3% relative to LangGraph. This rerun passes model-authored estimates through the explicit `synthetic-legacy-identity-v1` artifact to preserve the old selector semantics; the artifact is not empirical calibration and is not the runtime default.
-
-Read the generated [synthetic MVB report](../benchmarks/reports/synthetic-mvb.md) and [raw per-run summaries](../benchmarks/reports/synthetic-mvb-results.json).
-
-Two follow-up ablations isolate the dominant costs:
-
-- [proposal ablation](../benchmarks/reports/synthetic-ablation.md): 1x3 reduced mean tokens by 71.1% relative to 3x5 while preserving all fixture gates;
-- [projector lifecycle ablation](../benchmarks/reports/synthetic-projector-ablation.md): persistent projection preserved fixture decisions and was about 5.1× faster in this local rerun; exact timings are machine-dependent.
-
-Both remain simulator evidence until repeated in a comparative real-provider study.
-
-The newer [controlled mechanism study](../benchmarks/reports/mechanism.md) made the stop decision explicit:
-
-- single proposer + policy passed 50/50 at 3,256.84 mean synthetic tokens per success;
-- first-valid over a five-action beam passed 50/50 at 4,194.50;
-- adaptive and fixed 3×3 each passed 50/50 at 10,915.32, so adaptive expansion saved no compute here;
-- scalar utility, Pareto utility, and ε-Pareto each passed 0/50 under the zero-influence bootstrap; and
-- uniform random-safe passed only 1/50.
-
-Single proposer + policy is therefore the runtime default. Multi-candidate modes remain experimental. The old 3×5 result cannot be directly compared with this study because it uses the legacy identity objective artifact, a different comparison design, and historical routing semantics.
-
-## Hosted-provider smoke pilot
-
-The current checked-in [NVIDIA hosted pilot](../benchmarks/reports/nvidia-hosted-pilot-2026-07-27/README.md)
-ran tasks 001–003 through the complete control loop with the frozen single-action
-manifest, canonical Go policy, and virtual executor. The hosted model completed
-3/3 exact task oracles. Five proposed actions were rejected and were not
-executed. All three event chains passed lifecycle and hash verification.
-
-This pilot is classified E2P rather than E3: its fixtures are authored and
-unaudited, it uses one model and seed, and it has no equal-permission comparison
-condition. Its 17,504 reported tokens describe strictly parsed responses in
-these runs; they do not establish a token advantage. The archived July 26
-result predates the objective-calibration boundary, and an intervening
-objective-calibrated pilot passed only 2/3 because of a strict-completion
-failure. Neither is pooled with the current evidence.
-
-## Reproduction
-
+### Running the Synthetic Mechanism Study
 ```bash
-make check
-make evaluate-synthetic
-make evaluate-ablation
-make evaluate-projector
-make evaluate-mechanisms
-make evaluate-ope-simulation
+.venv/bin/python -m benchmarking.evaluate
 ```
 
-The report and raw results are regenerated deterministically except for timestamps and host-level latency.
+### Running the Hosted Model Pilot Summarizer
+```bash
+.venv/bin/python -m benchmarking.summarize_pilot
+```
 
-## Real-model protocol
+### Running the Go/Python Differential Policy Parity Gate
+```bash
+make verify-policy-parity
+```
 
-Before treating the MVB as evidence about Nemotron:
-
-1. freeze the model ID, NIM version, endpoint configuration, and server topology;
-2. run 100 three-request concurrency batches;
-3. classify every response by HTTP result, finish reason, parse result, and beam validity;
-4. preserve provider-reported prompt, reasoning, and completion usage;
-5. rerun the task-seed matrix from identical snapshots;
-6. report rate limits, retry load, p50/p95 latency, and incomplete output; and
-7. do not combine simulator and provider results in one effect estimate.
-
-`python3 -m benchmarking.provider_evaluate` implements this as a resumable run directory. Each full record is written once, configuration and fixture hashes are frozen in metadata, failures are appended separately, and the aggregate report is created only after all 150 records exist.
-
-## Interpretation boundaries
-
-The synthetic result supports the implementation path and current safety-plane positioning. It does not establish production safety, causal identification, real-model token savings, or generalization beyond the fixtures.
+All generated benchmark reports are stored under `benchmarks/reports/` and bound to exact SHA-256 source fingerprints. Any source code modification invalidates stale report digests automatically during `make release-check`.

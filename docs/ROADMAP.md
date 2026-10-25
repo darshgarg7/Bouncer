@@ -11,7 +11,8 @@ Roadmap items are bounded evidence milestones, not promises of production status
 - [x] Credential-free live demo and publication audit.
 - [x] Shadow-gated learned-routing substrate.
 - [x] Static anomaly scoring with explicit shadow and active circuit-breaker modes.
-- [ ] Publish signed release artifacts after GitHub infrastructure is configured.
+- [ ] Publish signed release artifacts after the release workflow is exercised
+  and qualified from a clean tag.
 
 ## v0.2 — External evaluation
 

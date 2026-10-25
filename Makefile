@@ -11,7 +11,7 @@ RUFF ?= ruff
 MYPY ?= mypy
 endif
 
-.PHONY: help architecture-check bootstrap build check containers coverage demo demo-gif format format-check fuzz-smoke lint lock-python mutation-check portfolio-check release-artifacts release-audit release-check test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation evaluate-learning
+.PHONY: help architecture-check bootstrap build check clean clean-results containers coverage demo demo-gif format format-check fuzz-smoke lint lock-python mutation-check portfolio-check release-artifacts release-audit release-check test test-go test-python validate-contracts verify-policy-parity project-example evaluate-synthetic evaluate-ablation evaluate-projector evaluate-mechanisms evaluate-ope-simulation evaluate-learning
 
 help:
 	@echo "Common targets:"
@@ -26,6 +26,8 @@ help:
 	@echo "  demo       Run five control-boundary checks without credentials or Docker"
 	@echo "  demo-gif   Render the live demo output to docs/assets/bouncer-demo.gif"
 	@echo "  build      Build command binaries under bin/"
+	@echo "  clean      Remove reproducible builds and development caches"
+	@echo "  clean-results  Remove ignored local benchmark results"
 	@echo "  fuzz-smoke Run short trust-boundary fuzz sessions"
 	@echo "  mutation-check  Gate critical Go packages using a separately installed mutator"
 	@echo "  lock-python  Regenerate the hash-pinned Python 3.11 development lock"
@@ -46,9 +48,17 @@ build:
 	go build -o bin/bouncer-sandbox ./cmd/bouncer-sandbox
 	go build -o bin/bouncer-verify-log ./cmd/bouncer-verify-log
 
+clean:
+	rm -rf bin dist .mypy_cache .pytest_cache .ruff_cache bouncer_constraint_projection.egg-info
+	rm -f .coverage coverage.out
+	find benchmarking constraint_projection tests tools -type d -name __pycache__ -prune -exec rm -rf {} +
+
+clean-results:
+	find benchmarks/results -mindepth 1 -maxdepth 1 ! -name .gitkeep -exec rm -rf {} +
+
 containers:
-	docker build -f Dockerfile.bouncer -t bouncer:local .
-	docker build -f Dockerfile.sandbox -t bouncer-sandbox:local .
+	docker build -f deploy/docker/Dockerfile.bouncer -t bouncer:local .
+	docker build -f deploy/docker/Dockerfile.sandbox -t bouncer-sandbox:local .
 
 demo:
 	go run ./cmd/bouncer-demo
@@ -71,7 +81,7 @@ portfolio-check: coverage
 release-artifacts:
 	./tools/build_release.sh
 
-release-audit:
+release-audit: build
 	$(PYTHON) tools/release_audit.py
 
 coverage:

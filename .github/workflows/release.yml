@@ -97,7 +97,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
-          file: Dockerfile.bouncer
+          file: deploy/docker/Dockerfile.bouncer
           push: true
           tags: |
             ${{ steps.names.outputs.bouncer }}:${{ github.ref_name }}
@@ -115,7 +115,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
-          file: Dockerfile.sandbox
+          file: deploy/docker/Dockerfile.sandbox
           push: true
           tags: |
             ${{ steps.names.outputs.sandbox }}:${{ github.ref_name }}

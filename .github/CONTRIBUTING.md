@@ -18,7 +18,7 @@ The remaining Make targets use that environment automatically.
 
 ## Before changing code
 
-Start with the short [development guide](docs/DEVELOPMENT.md). It identifies
+Start with the short [development guide](../docs/DEVELOPMENT.md). It identifies
 the runtime path, the independent Python reference, and the tests that protect
 each boundary.
 
