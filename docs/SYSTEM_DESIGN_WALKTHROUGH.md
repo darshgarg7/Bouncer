@@ -117,7 +117,7 @@ When a mutation request is submitted, Bouncer claims an idempotency key before i
 Before v1.0, Bouncer may change command flags, schemas, manifests, and event payloads between minor releases. Every breaking change must:
 1. Increment the affected `schema_version` or artifact version;
 2. Add a compatibility test or fail with an explicit migration error;
-3. Document the migration in `docs/CHANGELOG.md`; and
+3. Document the migration in `CHANGELOG.md`; and
 4. Preserve the old decoder for at least one minor release when doing so does not weaken a security boundary.
 
 *Supported Toolchains:* Go 1.25+ and Python 3.11+. Linux is required for rooted-executor qualification; macOS supports the virtual development path.

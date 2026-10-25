@@ -63,7 +63,7 @@ It exercises:
 
 **Multi-Process Docker Demo:**
 ```bash
-docker compose -f deploy/docker/compose.demo.yaml up --build --abort-on-container-exit --exit-code-from bouncer
+docker compose -f compose.demo.yaml up --build --abort-on-container-exit --exit-code-from bouncer
 ```
 
 ---
