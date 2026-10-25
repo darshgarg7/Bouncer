@@ -4,6 +4,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![CI](https://github.com/darshgarg7/Bouncer/actions/workflows/ci.yml/badge.svg)](https://github.com/darshgarg7/Bouncer/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-success?style=flat-square)](LICENSE)
 
 AI agents can propose actions. **They should not authorize themselves.**
@@ -157,7 +158,17 @@ Bouncer is a research prototype, not a production safety proof. Its strongest ru
 | [Production readiness](docs/PRODUCTION_READINESS.md) | Implemented controls versus remaining qualification work |
 | [Candidate brief](docs/HIRING_GUIDE.md) | Résumé bullets, role alignment, and interview walkthrough |
 
-The [roadmap](ROADMAP.md), [changelog](CHANGELOG.md), [contributing guide](CONTRIBUTING.md), and [security policy](SECURITY.md) cover project maintenance.
+### Repository layout
+
+| Path | Responsibility |
+| --- | --- |
+| `cmd/`, `internal/` | Go binaries and authoritative runtime packages |
+| `constraint_projection/` | Independent Python policy reference |
+| `benchmarking/`, `benchmarks/` | Evaluation code, tasks, and source-bound evidence |
+| `configs/`, `schemas/`, `examples/` | Versioned runtime inputs and public contracts |
+| `deploy/` | Container, Kubernetes, and observability assets |
+
+The [roadmap](docs/ROADMAP.md), [changelog](docs/CHANGELOG.md), [contributing guide](.github/CONTRIBUTING.md), [code of conduct](.github/CODE_OF_CONDUCT.md), and [security policy](.github/SECURITY.md) cover project maintenance.
 
 ## License
 

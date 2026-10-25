@@ -20,6 +20,10 @@ Versioning for published releases.
 
 - Reworked the README into a concise portfolio landing page.
 - Made source/evidence divergence explicit in the publication gate.
+- Consolidated container assets under `deploy/docker`, community files under
+  `.github`, and maintenance documents under `docs`.
+- Added explicit `make clean` and `make clean-results` targets while preserving
+  local credentials and virtual environments.
 
 ## [0.1.0] - TBD
 

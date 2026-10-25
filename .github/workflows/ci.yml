@@ -48,7 +48,7 @@ jobs:
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
-          file: Dockerfile.bouncer
+          file: deploy/docker/Dockerfile.bouncer
           load: true
           push: false
           tags: bouncer:ci
@@ -62,7 +62,7 @@ jobs:
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
-          file: Dockerfile.sandbox
+          file: deploy/docker/Dockerfile.sandbox
           load: true
           push: false
           tags: bouncer-sandbox:ci
@@ -73,5 +73,5 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
-      - run: docker compose -f compose.demo.yaml config --quiet
-      - run: docker compose -f compose.demo.yaml up --build --abort-on-container-exit --exit-code-from bouncer
+      - run: docker compose -f deploy/docker/compose.demo.yaml config --quiet
+      - run: docker compose -f deploy/docker/compose.demo.yaml up --build --abort-on-container-exit --exit-code-from bouncer

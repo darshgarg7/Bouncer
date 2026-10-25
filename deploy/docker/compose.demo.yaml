@@ -1,8 +1,10 @@
+name: bouncer-demo
+
 services:
   mock-provider:
     build:
-      context: .
-      dockerfile: Dockerfile.demo-provider
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.demo-provider
     healthcheck:
       test:
         - CMD
@@ -15,8 +17,8 @@ services:
 
   bouncer:
     build:
-      context: .
-      dockerfile: Dockerfile.bouncer
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.bouncer
     depends_on:
       mock-provider:
         condition: service_healthy
