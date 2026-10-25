@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-run ./cmd/
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-provider-gate ./cmd/bouncer-provider-gate \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bouncer-verify-log ./cmd/bouncer-verify-log
 
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 # The runtime imports only Python's standard library. Remove build/install
